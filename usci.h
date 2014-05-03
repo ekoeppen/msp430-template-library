@@ -1,0 +1,55 @@
+#ifndef __USCI_H
+#define __USCI_H
+
+enum USCI_MODULE {
+	USCI_A,
+	USCI_B
+};
+
+static constexpr int usci_a_registers[][8] = {
+	{UCA0CTL0_, UCA0CTL1_, UCA0BR0_, UCA0BR1_, UCA0MCTL_, UCA0STAT_, UCA0RXBUF_, UCA0TXBUF_},
+#ifdef UCA1CTL0_
+	{UCA1CTL0_, UCA1CTL1_, UCA1BR0_, UCA1BR1_, UCA1MCTL_, UCA1STAT_, UCA1RXBUF_, UCA1TXBUF_}
+#endif
+};
+
+static constexpr int usci_b_registers[][8] = {
+	{UCB0CTL0_, UCB0CTL1_, UCB0BR0_, UCB0BR1_, 0, UCB0STAT_, UCB0RXBUF_, UCB0TXBUF_},
+#ifdef UCB1CTL0_
+	{UCB1CTL0_, UCB1CTL1_, UCB1BR0_, UCB1BR1_, 0, UCB1STAT_, UCB1RXBUF_, UCB1TXBUF_}
+#endif
+};
+
+#define USCI_REGISTER(module, instance, reg) ((unsigned char *) (module == USCI_A ? usci_a_registers : usci_b_registers)[instance][reg]);
+
+template<const USCI_MODULE MODULE,
+	const int INSTANCE>
+struct USCI_T {
+	static constexpr volatile unsigned char *CTL0 = USCI_REGISTER(MODULE, INSTANCE, 0);
+	static constexpr volatile unsigned char *CTL1 = USCI_REGISTER(MODULE, INSTANCE, 1);
+	static constexpr volatile unsigned char *BR0 = USCI_REGISTER(MODULE, INSTANCE, 2);
+	static constexpr volatile unsigned char *BR1 = USCI_REGISTER(MODULE, INSTANCE, 3);
+	static constexpr volatile unsigned char *MCTL = USCI_REGISTER(MODULE, INSTANCE, 4);
+	static constexpr volatile unsigned char *STAT = USCI_REGISTER(MODULE, INSTANCE, 5);
+	static constexpr volatile unsigned char *RXBUF = USCI_REGISTER(MODULE, INSTANCE, 6);
+	static constexpr volatile unsigned char *TXBUF = USCI_REGISTER(MODULE, INSTANCE, 7);
+
+	static void enable_rx_irq(void) {
+		IE2 |= (MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
+	}
+
+	static inline void enter_idle(void) {
+		__bis_SR_register(LPM0_bits + GIE);
+	}
+
+	static void clear_rx_irq(void) {
+		IFG2 &= ~(MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG);
+	}
+
+	static inline void resume_irq(void) {
+		__bic_SR_register_on_exit(LPM0_bits);
+	}
+
+};
+
+#endif

@@ -19,3 +19,10 @@
 *.exe
 *.out
 *.app
+*.elf
+*.bin
+
+# Temporary files
+*.swp
+*~
+*.lst
