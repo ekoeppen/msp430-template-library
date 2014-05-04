@@ -31,6 +31,7 @@ struct WDT_T {
 		(INTERVAL == WDT_INTERVAL_512 ? 512 : 64)));
 
 	static void init(void) {
+		static_assert(frequency > 0, "WDT frequency can't be zero");
 		WDTCTL = WDTPW + WDTCNTCL +
 			(MODE == WDT_TIMER ? WDTTMSEL : 0) +
 			(CLOCK_SOURCE::type == CLOCK_TYPE_ACLK ? WDTSSEL : 0) +
