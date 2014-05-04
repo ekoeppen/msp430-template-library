@@ -8,13 +8,13 @@
 typedef ACLK_T<> ACLK;
 typedef SMCLK_T<> SMCLK;
 
-typedef GPIO_PIN_T<1, 0, OUTPUT, false> LED_RED;
-typedef GPIO_PIN_T<1, 1, OUTPUT, false, false, RISING, 3> RX;
-typedef GPIO_PIN_T<1, 2, INPUT, false, false, RISING, 3> TX;
-typedef GPIO_PIN_T<1, 4, OUTPUT, true> CS;
-typedef GPIO_PIN_T<1, 5, OUTPUT, false, false, RISING, 3> SCK;
-typedef GPIO_PIN_T<1, 6, INPUT, false, false, RISING, 3> MISO;
-typedef GPIO_PIN_T<1, 7, OUTPUT, false, false, RISING, 3> MOSI;
+typedef GPIO_PIN_T<1, 0, OUTPUT> LED_RED;
+typedef GPIO_PIN_T<1, 1, OUTPUT, false, RISING, 3> RX;
+typedef GPIO_PIN_T<1, 2, INPUT, false, RISING, 3> TX;
+typedef GPIO_PIN_T<1, 4, OUTPUT> CS;
+typedef GPIO_PIN_T<1, 5, OUTPUT, false, RISING, 3> SCK;
+typedef GPIO_PIN_T<1, 6, INPUT, false, RISING, 3> MISO;
+typedef GPIO_PIN_T<1, 7, OUTPUT, false, RISING, 3> MOSI;
 typedef GPIO_PORT_T<1, LED_RED, RX, TX, CS, SCK, MISO, MOSI> PORT2;
 
 typedef WDT_T<ACLK, WDT_TIMER> WDT;
@@ -29,6 +29,8 @@ int main(void)
 	SMCLK::init();
 	WDT::init();
 	PORT2::init();
+	LED_RED::set_low();
+	CS::set_high();
 	SPI::init();
 	UART::init();
 	WDT::enable_irq();

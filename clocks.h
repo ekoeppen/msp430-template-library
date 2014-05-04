@@ -18,11 +18,27 @@ enum CLK_SOURCE {
 	CLK_SOURCE_DCOCLK
 };
 
-template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_LFXT1CLK,
+struct DEFAULT_IDLER {
+	static constexpr unsigned char idle_mode = LPM4_bits;
+};
+
+template<typename PERIPH0 = DEFAULT_IDLER,
+	typename PERIPH1 = DEFAULT_IDLER,
+	typename PERIPH2 = DEFAULT_IDLER,
+	typename PERIPH3 = DEFAULT_IDLER>
+inline void enter_idle(const unsigned char idle_mode = LPM4_bits) {
+	__bis_SR_register((idle_mode & PERIPH0::idle_mode & PERIPH1::idle_mode & PERIPH2::idle_mode & PERIPH3::idle_mode) + GIE);
+}
+
+inline void exit_idle(void) {
+	__bic_SR_register_on_exit(LPM0_bits);
+}
+
+template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_VLOCLK,
 	const int DIVIDER = 0>
 struct ACLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_ACLK;
-	static constexpr long speed = (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768);
+	static constexpr long frequency = (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768);
 
 	static void init(void) {
 		if (SOURCE == ACLK_SOURCE_VLOCLK) BCSCTL3 |= LFXT1S_2;
@@ -30,13 +46,13 @@ struct ACLK_T {
 };
 
 template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
-	const long SPEED = 1000000>
+	const long FREQUENCY = 1000000>
 struct SMCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_SMCLK;
-	static constexpr long speed = SPEED;
+	static constexpr long frequency = FREQUENCY;
 
 	static void init(void) {
-		switch (speed) {
+		switch (frequency) {
 			case 1000000:
 			default:
 				BCSCTL1 = CALBC1_1MHZ;
@@ -45,5 +61,21 @@ struct SMCLK_T {
 		}
 	};
 };
+
+template<typename CLOCK>
+struct ALARM_T {
+	static unsigned long alarm;
+
+	static void set_alarm(const unsigned long milliseconds) {
+		alarm = milliseconds * CLOCK::frequency / 1000;
+	};
+
+	static inline bool alarm_triggered(void) {
+		return (alarm && (--alarm == 0));
+	};
+};
+
+template<typename CLOCK>
+unsigned long ALARM_T<CLOCK>::alarm;
 
 #endif

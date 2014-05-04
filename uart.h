@@ -11,6 +11,9 @@ template<const USCI_MODULE MODULE,
 	const long SPEED = 9600>
 struct UART_T {
 	typedef USCI_T<MODULE, INSTANCE> USCI;
+
+	static constexpr unsigned char idle_mode = LPM0_bits;
+
 	static int tx_count;
 	static int rx_count;
 	static uint8_t *rx_buffer;

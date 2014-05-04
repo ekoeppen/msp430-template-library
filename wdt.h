@@ -24,6 +24,12 @@ template<typename CLOCK_SOURCE,
 	const WDT_MODE MODE = WDT_WATCHDOG,
 	const WDT_INTERVAL INTERVAL = WDT_INTERVAL_32768>
 struct WDT_T {
+	static constexpr unsigned char idle_mode = LPM3_bits;
+	static constexpr int frequency = CLOCK_SOURCE::frequency /
+		(INTERVAL == WDT_INTERVAL_32768 ? 32768 :
+		(INTERVAL == WDT_INTERVAL_8192 ? 8192 :
+		(INTERVAL == WDT_INTERVAL_512 ? 512 : 64)));
+
 	static void init(void) {
 		WDTCTL = WDTPW + WDTCNTCL +
 			(MODE == WDT_TIMER ? WDTTMSEL : 0) +
@@ -37,14 +43,6 @@ struct WDT_T {
 
 	static void disable_irq(void) {
 		IE1 &= ~WDTIE;
-	};
-
-	static void enter_idle(void) {
-		__bis_SR_register(LPM3_bits + GIE);
-	};
-
-	static inline void resume_irq(void) {
-		__bic_SR_register_on_exit(LPM3_bits);
 	};
 
 	static void enable(void) {

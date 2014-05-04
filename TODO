@@ -1,0 +1,2 @@
+* Change idle_mode to use underlying clock
+* Interrupt driven UART RX/TX

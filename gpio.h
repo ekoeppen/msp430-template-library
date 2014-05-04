@@ -41,10 +41,11 @@ static constexpr int ports[][9] = {
 
 template<const char PORT, const char PIN,
 	const GPIO_DIRECTION DIRECTION,
+	const bool HIGH = false,
 	const bool INTERRUPT_ENABLE = false,
 	const GPIO_INTERRUPT_EDGE INTERRUPT_EDGE = RISING,
 	const char FUNCTION_SELECT = 0,
-	const bool RESISTOR_ENABLE= false>
+	const bool RESISTOR_ENABLE = false>
 struct GPIO_PIN_T {
 	static constexpr volatile unsigned char *PxIN = (unsigned char *) ports[PORT][0];
 	static constexpr volatile unsigned char *PxOUT = (unsigned char *) ports[PORT][1];
@@ -60,10 +61,11 @@ struct GPIO_PIN_T {
 
 	static constexpr unsigned char direction = (DIRECTION == OUTPUT ? bit_value : 0);
 	static constexpr unsigned char interrupt_enable = (INTERRUPT_ENABLE ? bit_value : 0);
-	static constexpr unsigned char interrupt_edge =  (INTERRUPT_EDGE == FALLING ? bit_value : 0);
-	static constexpr unsigned char function_select =  (FUNCTION_SELECT & 0b01 ? bit_value : 0);
-	static constexpr unsigned char function_select2 =  (FUNCTION_SELECT & 0b10 ? bit_value : 0);
-	static constexpr unsigned char resistor_enable =  (RESISTOR_ENABLE ? bit_value : 0);
+	static constexpr unsigned char interrupt_edge = (INTERRUPT_EDGE == FALLING ? bit_value : 0);
+	static constexpr unsigned char function_select = (FUNCTION_SELECT & 0b01 ? bit_value : 0);
+	static constexpr unsigned char function_select2 = (FUNCTION_SELECT & 0b10 ? bit_value : 0);
+	static constexpr unsigned char resistor_enable = (RESISTOR_ENABLE ? bit_value : 0);
+	static constexpr unsigned char high = (HIGH ? bit_value : 0);
 
 	static void init(void) {
 		if (DIRECTION == OUTPUT) *PxDIR |= bit_value;
@@ -84,6 +86,7 @@ struct GPIO_PIN_T {
 			*PxSEL2 |= bit_value;
 		}
 		if (RESISTOR_ENABLE) *PxREN |= bit_value;
+		if (HIGH) *PxOUT |= bit_value;
 	};
 
 	static void set_high(void) {
@@ -101,6 +104,10 @@ struct GPIO_PIN_T {
 	static void toggle(void) {
 		*PxOUT ^= bit_value;
 	}
+
+	static void clear_irq(void) {
+		*PxIFG &= ~bit_value;
+	}
 };
 
 struct PIN_UNUSED {
@@ -110,6 +117,7 @@ struct PIN_UNUSED {
 	static constexpr unsigned char function_select = 0;
 	static constexpr unsigned char function_select2 = 0;
 	static constexpr unsigned char resistor_enable = 0;
+	static constexpr unsigned char high = 0;
 };
 
 template<const int PORT,
@@ -132,27 +140,45 @@ struct GPIO_PORT_T {
 	static constexpr volatile unsigned char *PxSEL2 = (unsigned char *) ports[PORT][7];
 	static constexpr volatile unsigned char *PxREN = (unsigned char *) ports[PORT][8];
 
+	static constexpr unsigned char idle_mode = LPM3_bits;
+
 	static void init(void) {
-		*PxDIR =
+		unsigned char reg;
+
+		reg =
+			PIN0::high | PIN1::high | PIN2::high | PIN3::high |
+			PIN6::high | PIN5::high | PIN6::high | PIN7::high;
+		if (reg) *PxOUT = reg;
+
+		reg =
 			PIN0::direction | PIN1::direction | PIN2::direction | PIN3::direction |
 			PIN6::direction | PIN5::direction | PIN6::direction | PIN7::direction;
+		if (reg) *PxDIR = reg;
 
-		*PxIE =
+		reg =
 			PIN0::interrupt_enable | PIN1::interrupt_enable | PIN2::interrupt_enable | PIN3::interrupt_enable |
 			PIN6::interrupt_enable | PIN5::interrupt_enable | PIN6::interrupt_enable | PIN7::interrupt_enable;
+		if (reg) *PxIE = reg;
 
-		*PxSEL =
+		reg =
 			PIN0::function_select | PIN1::function_select | PIN2::function_select | PIN3::function_select |
 			PIN6::function_select | PIN5::function_select | PIN6::function_select | PIN7::function_select;
+		if (reg) *PxSEL = reg;
 
-		*PxSEL2 =
+		reg =
 			PIN0::function_select2 | PIN1::function_select2 | PIN2::function_select2 | PIN3::function_select2 |
 			PIN6::function_select2 | PIN5::function_select2 | PIN6::function_select2 | PIN7::function_select2;
+		if (reg) *PxSEL2 = reg;
 
-		*PxREN =
+		reg =
 			PIN0::resistor_enable | PIN1::resistor_enable | PIN2::resistor_enable | PIN3::resistor_enable |
 			PIN6::resistor_enable | PIN5::resistor_enable | PIN6::resistor_enable | PIN7::resistor_enable;
+		if (reg) *PxREN = reg;
 	}
+
+	static void clear_irq(void) {
+		*PxIFG = 0;
+	};
 };
 
 #endif
