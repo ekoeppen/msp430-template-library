@@ -3,14 +3,44 @@
 
 #include <msp430.h>
 
-enum GPIO_DIRECTION {
+enum DIRECTION {
 	INPUT = 0,
 	OUTPUT = 1
 };
 
-enum GPIO_INTERRUPT_EDGE {
-	RISING = 0,
-	FALLING = 1
+enum TRIGGER_EDGE {
+	TRIGGER_RISING = 0,
+	TRIGGER_FALLING = 1
+};
+
+enum LEVEL {
+	LOW = false,
+	PULL_DOWN = false,
+	HIGH = true,
+	PULL_UP = true
+};
+
+enum INTERRUPT_ENABLE {
+	INTERRUPT_DISABLED = false,
+	INTERRUPT_ENABLED = true
+};
+
+enum RESISTOR_ENABLE {
+	RESISTOR_DISABLED = false,
+	RESISTOR_ENABLED = true
+};
+
+enum PIN_FUNCTION {
+	TIMER_OUTPUT,
+	TIMER_COMPARE,
+	ACLK_OUTPUT,
+	CAPACITIVE_SENSE,
+	ADCCLK_OUTPUT,
+	COMPARATOR_OUTPUT,
+	SMCLK_OUTUT,
+	XIN,
+	XOUT,
+	USCI
 };
 
 static constexpr int ports[][9] = {
@@ -40,12 +70,12 @@ static constexpr int ports[][9] = {
 };
 
 template<const char PORT, const char PIN,
-	const GPIO_DIRECTION DIRECTION,
-	const bool HIGH = false,
-	const bool INTERRUPT_ENABLE = false,
-	const GPIO_INTERRUPT_EDGE INTERRUPT_EDGE = RISING,
+	const DIRECTION PIN_DIRECTION = OUTPUT,
+	const LEVEL INITIAL_LEVEL = LOW,
+	const INTERRUPT_ENABLE INTERRUPT = INTERRUPT_DISABLED,
+	const TRIGGER_EDGE EDGE = TRIGGER_RISING,
 	const char FUNCTION_SELECT = 0,
-	const bool RESISTOR_ENABLE = false>
+	const RESISTOR_ENABLE RESISTOR = RESISTOR_DISABLED>
 struct GPIO_PIN_T {
 	static constexpr volatile unsigned char *PxIN = (unsigned char *) ports[PORT][0];
 	static constexpr volatile unsigned char *PxOUT = (unsigned char *) ports[PORT][1];
@@ -59,21 +89,21 @@ struct GPIO_PIN_T {
 
 	static constexpr unsigned char bit_value = 1 << PIN;
 
-	static constexpr unsigned char direction = (DIRECTION == OUTPUT ? bit_value : 0);
-	static constexpr unsigned char interrupt_enable = (INTERRUPT_ENABLE ? bit_value : 0);
-	static constexpr unsigned char interrupt_edge = (INTERRUPT_EDGE == FALLING ? bit_value : 0);
+	static constexpr unsigned char direction = (PIN_DIRECTION == OUTPUT ? bit_value : 0);
+	static constexpr unsigned char interrupt_enable = (INTERRUPT ? bit_value : 0);
+	static constexpr unsigned char interrupt_edge = (EDGE == TRIGGER_FALLING ? bit_value : 0);
 	static constexpr unsigned char function_select = (FUNCTION_SELECT & 0b01 ? bit_value : 0);
 	static constexpr unsigned char function_select2 = (FUNCTION_SELECT & 0b10 ? bit_value : 0);
-	static constexpr unsigned char resistor_enable = (RESISTOR_ENABLE ? bit_value : 0);
-	static constexpr unsigned char high = (HIGH ? bit_value : 0);
+	static constexpr unsigned char resistor_enable = (RESISTOR ? bit_value : 0);
+	static constexpr unsigned char initial_level = (INITIAL_LEVEL ? bit_value : 0);
 
 	static void init(void) {
-		if (DIRECTION == OUTPUT) *PxDIR |= bit_value;
-		if (INTERRUPT_ENABLE) {
+		if (PIN_DIRECTION == OUTPUT) *PxDIR |= bit_value;
+		if (INTERRUPT) {
 			static_assert(PxIE != 0, "Port not interrupt capable");
 			*PxIE |= bit_value;
 		}
-		if (INTERRUPT_EDGE == FALLING) {
+		if (EDGE == TRIGGER_FALLING) {
 			static_assert(PxIES != 0, "Port not interrupt capable");
 			*PxIES |= bit_value;
 		}
@@ -85,8 +115,8 @@ struct GPIO_PIN_T {
 			static_assert(PxSEL2 != 0, "Port does not have alternate functions");
 			*PxSEL2 |= bit_value;
 		}
-		if (RESISTOR_ENABLE) *PxREN |= bit_value;
-		if (HIGH) *PxOUT |= bit_value;
+		if (RESISTOR) *PxREN |= bit_value;
+		if (INITIAL_LEVEL) *PxOUT |= bit_value;
 	};
 
 	static void set_high(void) {
@@ -110,6 +140,25 @@ struct GPIO_PIN_T {
 	}
 };
 
+template<const char PORT, const char PIN,
+	const RESISTOR_ENABLE RESISTOR = RESISTOR_DISABLED,
+	const LEVEL PULL = PULL_DOWN,
+	const INTERRUPT_ENABLE INTERRUPT = INTERRUPT_DISABLED,
+	const TRIGGER_EDGE EDGE = TRIGGER_RISING>
+struct GPIO_INPUT_T: public GPIO_PIN_T<PORT, PIN, INPUT, PULL, INTERRUPT, EDGE, 0, RESISTOR> {
+};
+
+template<const char PORT, const char PIN,
+	const LEVEL INITIAL_LEVEL = LOW>
+struct GPIO_OUTPUT_T: public GPIO_PIN_T<PORT, PIN, OUTPUT, INITIAL_LEVEL, INTERRUPT_DISABLED, TRIGGER_RISING, 0, RESISTOR_DISABLED> {
+};
+
+template<const char PORT, const char PIN,
+	const char FUNCTION_SELECT = 0,
+	const DIRECTION PIN_DIRECTION = OUTPUT>
+struct GPIO_MODULE_T: public GPIO_PIN_T<PORT, PIN, PIN_DIRECTION, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, FUNCTION_SELECT, RESISTOR_DISABLED> {
+};
+
 struct PIN_UNUSED {
 	static constexpr unsigned char direction = 0;
 	static constexpr unsigned char interrupt_enable = 0;
@@ -117,7 +166,7 @@ struct PIN_UNUSED {
 	static constexpr unsigned char function_select = 0;
 	static constexpr unsigned char function_select2 = 0;
 	static constexpr unsigned char resistor_enable = 0;
-	static constexpr unsigned char high = 0;
+	static constexpr unsigned char initial_level = 0;
 };
 
 template<const int PORT,
@@ -146,8 +195,8 @@ struct GPIO_PORT_T {
 		unsigned char reg;
 
 		reg =
-			PIN0::high | PIN1::high | PIN2::high | PIN3::high |
-			PIN6::high | PIN5::high | PIN6::high | PIN7::high;
+			PIN0::initial_level | PIN1::initial_level | PIN2::initial_level | PIN3::initial_level |
+			PIN6::initial_level | PIN5::initial_level | PIN6::initial_level | PIN7::initial_level;
 		if (reg) *PxOUT = reg;
 
 		reg =

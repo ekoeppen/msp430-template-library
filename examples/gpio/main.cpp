@@ -9,9 +9,9 @@ typedef ACLK_T<> ACLK;
 typedef SMCLK_T<> SMCLK;
 typedef WDT_T<ACLK, WDT_TIMER> WDT;
 
-typedef GPIO_PIN_T<1, 0, OUTPUT, false> LED_RED;
-typedef GPIO_PIN_T<1, 3, INPUT, true, true, FALLING, 0, true> BUTTON;
-typedef GPIO_PIN_T<1, 6, OUTPUT, true> LED_GREEN;
+typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
+typedef GPIO_OUTPUT_T<1, 6, HIGH> LED_GREEN;
+typedef GPIO_INPUT_T<1, 3, RESISTOR_ENABLED, PULL_UP, INTERRUPT_ENABLED, TRIGGER_FALLING> BUTTON;
 struct PORT1: public GPIO_PORT_T<1, LED_RED, LED_GREEN, BUTTON> {
 	static constexpr unsigned char idle_mode = LPM4_bits;
 };
