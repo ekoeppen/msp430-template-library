@@ -1,12 +1,12 @@
 #CPU = msp430f2013
 CPU = msp430g2553
 
-SRCS := $(wildcard *.c) $(wildcard *.cpp) \
+SRCS := $(wildcard *.c) $(wildcard *.cpp) $(wildcard ../../*.c) \
 	#../spi/spi.c \
 	#../usci_uart/usci_uart.c \
 
 
-CFLAGS = -std=c++0x -Os -g -I. \
+CFLAGS = -std=c++0x -Os -g -I../.. \
 	 -fdata-sections -ffunction-sections \
 	 -Wl,--gc-sections
 

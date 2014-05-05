@@ -62,6 +62,11 @@ struct UART_T {
 			putc(*data++);
 		};
 	}
+
+	static char getc() {
+		while (!(IFG2 & (MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG))) ;
+		return *USCI::RXBUF;
+	}
 };
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>

@@ -5,57 +5,28 @@
 #include <uart.h>
 #include <io.h>
 
-typedef ACLK_T<> ACLK;
+typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
 typedef SMCLK_T<> SMCLK;
 
-typedef GPIO_PIN_T<1, 0, OUTPUT> LED_RED;
-typedef GPIO_PIN_T<1, 1, OUTPUT, false, RISING, 3> RX;
-typedef GPIO_PIN_T<1, 2, INPUT, false, RISING, 3> TX;
-typedef GPIO_PIN_T<1, 4, OUTPUT> CS;
-typedef GPIO_PIN_T<1, 5, OUTPUT, false, RISING, 3> SCK;
-typedef GPIO_PIN_T<1, 6, INPUT, false, RISING, 3> MISO;
-typedef GPIO_PIN_T<1, 7, OUTPUT, false, RISING, 3> MOSI;
-typedef GPIO_PORT_T<1, LED_RED, RX, TX, CS, SCK, MISO, MOSI> PORT2;
+typedef GPIO_MODULE_T<1, 1, 3> RX;
+typedef GPIO_MODULE_T<1, 2, 3> TX;
+typedef GPIO_PORT_T<1, RX, TX> PORT1;
 
-typedef WDT_T<ACLK, WDT_TIMER> WDT;
-typedef SPI_T<USCI_B, 0, SMCLK> SPI;
+typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 typedef UART_T<USCI_A, 0, SMCLK> UART;
-
-typedef ALARM_T<WDT> ALARM;
 
 int main(void)
 {
+	char c;
+
+	WDT::disable();
 	ACLK::init();
 	SMCLK::init();
-	WDT::init();
-	PORT2::init();
-	LED_RED::set_low();
-	CS::set_high();
-	SPI::init();
+	PORT1::init();
 	UART::init();
-	WDT::enable_irq();
 	while (1) {
-		LED_RED::toggle();
-
-		CS::set_low();
-		SPI::transfer((uint8_t *) "abc", 3);
-		CS::set_high();
-
-		ALARM::set_alarm(1000);
-		printf<UART>("WDT frequency: %d Alarm: %d\n", WDT::frequency, ALARM::alarm);
-		enter_idle<WDT>();
+		printf<UART>("Press any key...\n");
+		c = UART::getc();
+		printf<UART>("Key pressed = %c (code %d, hex %x)\n", c, c, c);
 	}
 }
-
-void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
-void watchdog_irq(void)
-{
-	if (ALARM::alarm_triggered()) exit_idle();
-}
-
-void usci_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
-void usci_irq(void)
-{
-	if (SPI::handle_irq()) exit_idle();
-}
-
