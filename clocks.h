@@ -65,6 +65,7 @@ struct SMCLK_T {
 template<typename CLOCK>
 struct ALARM_T {
 	static unsigned long alarm;
+	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
 
 	static void set_alarm(const unsigned long milliseconds) {
 		alarm = milliseconds * CLOCK::frequency / 1000;
