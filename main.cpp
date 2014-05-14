@@ -21,7 +21,7 @@ typedef WDT_T<ACLK, WDT_TIMER> WDT;
 typedef SPI_T<USCI_B, 0, SMCLK> SPI;
 typedef UART_T<USCI_A, 0, SMCLK> UART;
 
-typedef ALARM_T<WDT> ALARM;
+typedef TIMEOUT_T<WDT> TIMEOUT;
 
 int main(void)
 {
@@ -39,8 +39,8 @@ int main(void)
 		SPI::transfer((uint8_t *) "abc", 3);
 		CS::set_high();
 
-		ALARM::set_alarm(1000);
-		printf<UART>("WDT frequency: %d Alarm: %d\n", WDT::frequency, ALARM::alarm);
+		TIMEOUT::set_timeout(1000);
+		printf<UART>("WDT frequency: %d Alarm: %d\n", WDT::frequency, TIMEOUT::timeout);
 		enter_idle<WDT>();
 	}
 }
@@ -48,7 +48,7 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (ALARM::alarm_triggered()) exit_idle();
+	if (TIMEOUT::timeout_triggered()) exit_idle();
 }
 
 void usci_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));

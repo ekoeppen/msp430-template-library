@@ -10,13 +10,25 @@ char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, int zero_p
 }
 
 template<typename OUTPUT>
-void hex_dump_words(uint16_t *start, int count, const char *title = 0)
+void hex_dump_bytes(uint8_t *start, int count, const char *title = 0)
+{
+	if (title) printf<OUTPUT>("%s:\n", title);
+	while (count > 0) {
+		printf<OUTPUT>("%04x: %02x %02x %02x %02x\n",
+			       start, start[0], start[1], start[2], start[3]);
+		start += 4;
+		count -= 4;
+	}
+}
+
+template<typename OUTPUT>
+void hex_dump_short(uint16_t *start, int count, const char *title = 0)
 {
 	if (title) printf<OUTPUT>("%s:\n", title);
 	while (count > 0) {
 		printf<OUTPUT>("%04x: %04x %04x %04x %04x\n",
 			       start, start[0], start[1], start[2], start[3]);
-		start += 2;
+		start += 8;
 		count -= 8;
 	}
 }

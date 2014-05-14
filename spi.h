@@ -56,8 +56,10 @@ struct SPI_T {
 	static uint8_t transfer(uint8_t data) {
 		IE2 |= (MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
 		*TXBUF = data;
+		tx_count = 0;
+		rx_buffer = 0;
 		do {
-			enter_idle();
+			enter_idle(idle_mode);
 		} while (*STAT & UCBUSY);
 		return *RXBUF;
 	}

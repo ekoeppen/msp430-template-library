@@ -131,12 +131,44 @@ struct GPIO_PIN_T {
 		return *PxIN & bit_value;
 	}
 
+	static bool is_high(void) {
+		return *PxIN & bit_value;
+	}
+
+	static bool is_low(void) {
+		return !is_high();
+	}
+
 	static void toggle(void) {
 		*PxOUT ^= bit_value;
 	}
 
 	static void clear_irq(void) {
 		*PxIFG &= ~bit_value;
+	}
+
+	static void set_output(void) {
+		*PxDIR |= bit_value;
+	}
+
+	static void set_input(void) {
+		*PxDIR &= ~bit_value;
+	}
+
+	static void enable_resistor(void) {
+		*PxREN |= bit_value;
+	}
+
+	static void disable_resistor(void) {
+		*PxREN &= ~bit_value;
+	}
+
+	static void pull_up(void) {
+		set_high();
+	}
+
+	static void pull_down(void) {
+		set_low();
 	}
 };
 
@@ -196,32 +228,32 @@ struct GPIO_PORT_T {
 
 		reg =
 			PIN0::initial_level | PIN1::initial_level | PIN2::initial_level | PIN3::initial_level |
-			PIN6::initial_level | PIN5::initial_level | PIN6::initial_level | PIN7::initial_level;
+			PIN4::initial_level | PIN5::initial_level | PIN6::initial_level | PIN7::initial_level;
 		if (reg) *PxOUT = reg;
 
 		reg =
 			PIN0::direction | PIN1::direction | PIN2::direction | PIN3::direction |
-			PIN6::direction | PIN5::direction | PIN6::direction | PIN7::direction;
+			PIN4::direction | PIN5::direction | PIN6::direction | PIN7::direction;
 		if (reg) *PxDIR = reg;
 
 		reg =
 			PIN0::interrupt_enable | PIN1::interrupt_enable | PIN2::interrupt_enable | PIN3::interrupt_enable |
-			PIN6::interrupt_enable | PIN5::interrupt_enable | PIN6::interrupt_enable | PIN7::interrupt_enable;
+			PIN4::interrupt_enable | PIN5::interrupt_enable | PIN6::interrupt_enable | PIN7::interrupt_enable;
 		if (reg) *PxIE = reg;
 
 		reg =
 			PIN0::function_select | PIN1::function_select | PIN2::function_select | PIN3::function_select |
-			PIN6::function_select | PIN5::function_select | PIN6::function_select | PIN7::function_select;
+			PIN4::function_select | PIN5::function_select | PIN6::function_select | PIN7::function_select;
 		if (reg) *PxSEL = reg;
 
 		reg =
 			PIN0::function_select2 | PIN1::function_select2 | PIN2::function_select2 | PIN3::function_select2 |
-			PIN6::function_select2 | PIN5::function_select2 | PIN6::function_select2 | PIN7::function_select2;
+			PIN4::function_select2 | PIN5::function_select2 | PIN6::function_select2 | PIN7::function_select2;
 		if (reg) *PxSEL2 = reg;
 
 		reg =
 			PIN0::resistor_enable | PIN1::resistor_enable | PIN2::resistor_enable | PIN3::resistor_enable |
-			PIN6::resistor_enable | PIN5::resistor_enable | PIN6::resistor_enable | PIN7::resistor_enable;
+			PIN4::resistor_enable | PIN5::resistor_enable | PIN6::resistor_enable | PIN7::resistor_enable;
 		if (reg) *PxREN = reg;
 	}
 

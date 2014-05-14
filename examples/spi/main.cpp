@@ -19,7 +19,7 @@ typedef GPIO_PORT_T<1, LED_RED, CS, SCK, MISO, MOSI> PORT1;
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_64> WDT;
 typedef SPI_T<USCI_B, 0, SMCLK> SPI;
 
-typedef ALARM_T<WDT> ALARM;
+typedef TIMEOUT_T<WDT> TIMEOUT;
 
 int main(void)
 {
@@ -36,7 +36,7 @@ int main(void)
 		SPI::transfer((uint8_t *) "abc", 3);
 		CS::set_high();
 
-		ALARM::set_alarm(500);
+		TIMEOUT::set_timeout(500);
 		enter_idle<WDT>();
 	}
 }
@@ -44,7 +44,7 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (ALARM::alarm_triggered()) exit_idle();
+	if (TIMEOUT::timeout_triggered()) exit_idle();
 }
 
 void usci_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));

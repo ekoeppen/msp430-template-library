@@ -31,7 +31,7 @@ inline void enter_idle(const unsigned char idle_mode = LPM4_bits) {
 }
 
 inline void exit_idle(void) {
-	__bic_SR_register_on_exit(LPM0_bits);
+	__bic_SR_register_on_exit(LPM4_bits);
 }
 
 template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_VLOCLK,
@@ -39,6 +39,7 @@ template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_VLOCLK,
 struct ACLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_ACLK;
 	static constexpr long frequency = (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768);
+	static constexpr unsigned char idle_mode = LPM3_bits;
 
 	static void init(void) {
 		if (SOURCE == ACLK_SOURCE_VLOCLK) BCSCTL3 |= LFXT1S_2;
@@ -50,6 +51,7 @@ template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
 struct SMCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_SMCLK;
 	static constexpr long frequency = FREQUENCY;
+	static constexpr unsigned char idle_mode = LPM0_bits;
 
 	static void init(void) {
 		switch (frequency) {
@@ -63,20 +65,20 @@ struct SMCLK_T {
 };
 
 template<typename CLOCK>
-struct ALARM_T {
-	static unsigned long alarm;
+struct TIMEOUT_T {
+	static unsigned long timeout;
 	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
 
-	static void set_alarm(const unsigned long milliseconds) {
-		alarm = milliseconds * CLOCK::frequency / 1000;
+	static void set_timeout(const unsigned long milliseconds) {
+		timeout = milliseconds * CLOCK::frequency / 1000;
 	};
 
-	static inline bool alarm_triggered(void) {
-		return (alarm && (--alarm == 0));
+	static inline bool timeout_triggered(void) {
+		return (timeout && (--timeout == 0));
 	};
 };
 
 template<typename CLOCK>
-unsigned long ALARM_T<CLOCK>::alarm;
+unsigned long TIMEOUT_T<CLOCK>::timeout;
 
 #endif
