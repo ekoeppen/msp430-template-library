@@ -35,7 +35,7 @@ typedef SPI_T<USCI_B, 0, SMCLK> SPI;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
-typedef NRF24_t<SPI, SCK, CSN, CE, IRQ, 70, rx_addr> NRF24;
+typedef NRF24_t<TIMEOUT, SPI, SCK, CSN, CE, IRQ, 70, rx_addr> NRF24;
 
 int main(void)
 {

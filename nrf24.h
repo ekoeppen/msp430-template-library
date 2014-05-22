@@ -121,7 +121,8 @@ static constexpr uint8_t nrf24_init_values[][2] = {
 	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP}
 };
 
-template<typename SPI,
+template<typename TIMEOUT,
+	typename SPI,
 	typename SCK,
 	typename CSN,
 	typename CE,
@@ -131,28 +132,58 @@ template<typename SPI,
 	const uint8_t RX_ADDR2 = 0,
 	const uint8_t RX_ADDR3 = 0,
 	const uint8_t RX_ADDR4 = 0>
-struct NRF24_t {
+struct NRF24_T {
 	static void init(void) {
 		int i;
-		uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1;
 
 		for (i = 0; i < ARRAY_COUNT(nrf24_init_values); i++) {
 			rw_reg(nrf24_init_values[i][0], nrf24_init_values[i][1]);
 		}
-		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P1, RX_ADDR, RF24_ADDR_WIDTH);
-		if (RX_ADDR2 >= 0) {
-			pipe_enable += RF24_ERX_P2;
-			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, RX_ADDR2);
+		if (RX_ADDR != NULL) {
+			uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1;
+			write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P1, RX_ADDR, RF24_ADDR_WIDTH);
+			if (RX_ADDR2 >= 0) {
+				pipe_enable += RF24_ERX_P2;
+				rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, RX_ADDR2);
+			}
+			if (RX_ADDR3 >= 0) {
+				pipe_enable += RF24_ERX_P3;
+				rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, RX_ADDR3);
+			}
+			if (RX_ADDR4 >= 0) {
+				pipe_enable += RF24_ERX_P4;
+				rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, RX_ADDR4);
+			}
+			rw_reg(RF24_W_REGISTER + RF24_EN_RXADDR, pipe_enable);
 		}
-		if (RX_ADDR3 >= 0) {
-			pipe_enable += RF24_ERX_P2;
-			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, RX_ADDR3);
+		if (CHANNEL != 255) {
+			rw_reg(RF24_W_REGISTER + RF24_RF_CH, CHANNEL);
 		}
-		if (RX_ADDR4 >= 0) {
+	}
+
+	static void set_channel(uint8_t channel) {
+		rw_reg(RF24_W_REGISTER + RF24_RF_CH, channel);
+	}
+
+	static void set_rx_addr(const uint8_t *rx_addr,
+			const uint8_t rx_addr2 = 0,
+			const uint8_t rx_addr3 = 0,
+			const uint8_t rx_addr4 = 0) {
+		uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1;
+
+		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P1, rx_addr, RF24_ADDR_WIDTH);
+		if (rx_addr2 >= 0) {
 			pipe_enable += RF24_ERX_P2;
-			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, RX_ADDR4);
+			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, rx_addr2);
 		}
-		rw_reg(RF24_W_REGISTER + RF24_RF_CH, CHANNEL);
+		if (rx_addr3 >= 0) {
+			pipe_enable += RF24_ERX_P3;
+			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, rx_addr3);
+		}
+		if (rx_addr4 >= 0) {
+			pipe_enable += RF24_ERX_P4;
+			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, rx_addr4);
+		}
 		rw_reg(RF24_W_REGISTER + RF24_EN_RXADDR, pipe_enable);
 	}
 
@@ -163,7 +194,8 @@ struct NRF24_t {
 		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(auto_ack ? RF24_W_TX_PAYLOAD : RF24_W_TX_PAYLOAD_NOACK, data, len);
 		CE::set_high();
-		__delay_cycles(10000);
+		TIMEOUT::set_timeout(10);
+		enter_idle<TIMEOUT>();
 		CE::set_low();
 		while (IRQ::is_high());
 		rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_TX_DS | RF24_MAX_RT);
@@ -172,22 +204,19 @@ struct NRF24_t {
 	static int rx_buffer(uint8_t *data, int max_len, uint8_t *pipe, unsigned int timeout) {
 		int n = 0;
 
-		/*
-		if (timeout) {
-			timeout = timeout / 42 + systick;
-		}
-		*/
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		__delay_cycles(10000);
+		TIMEOUT::set_timeout(10);
+		enter_idle<TIMEOUT>();
 		CE::set_high();
+		TIMEOUT::set_timeout(timeout);
 		do {
 			if (!(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY)) {
 				n = rw_reg(RF24_R_RX_PL_WID, RF24_NOP);
 				rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
 			} else {
-				while (IRQ::is_high()/* && (timeout ? systick < timeout : 1)*/);
+				while (IRQ::is_high() && TIMEOUT::timeout > 0);
 			}
-		} while (n == 0 /*&& (timeout ? systick < timeout : 1)*/);
+		} while (n == 0 && TIMEOUT::timeout > 0);
 		if (n > 0) {
 			if (n > max_len) n = max_len;
 			if (pipe != 0) {
