@@ -10,7 +10,9 @@ typedef SMCLK_T<> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
 typedef GPIO_OUTPUT_T<1, 6, LOW> LED_GREEN;
-typedef GPIO_PORT_T<1, LED_RED, LED_GREEN> PORT1;
+typedef GPIO_MODULE_T<1, 1, 3> RX;
+typedef GPIO_MODULE_T<1, 2, 3> TX;
+typedef GPIO_PORT_T<1, LED_RED, LED_GREEN, RX, TX> PORT1;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
 typedef UART_T<USCI_A, 0, SMCLK> UART;
@@ -24,10 +26,13 @@ int main(void)
 	WDT::init();
 	PORT1::init();
 	WDT::enable_irq();
+	UART::init();
+	printf<UART>("WDT example start\n");
 	while (1) {
 		LED_RED::toggle();
-		TIMEOUT::set_timeout(1000);
+		TIMEOUT::set_timeout(60000 * 30);
 		enter_idle<WDT>();
+		printf<UART>("Timeout\n");
 	}
 }
 
