@@ -126,38 +126,11 @@ template<typename TIMEOUT,
 	typename SCK,
 	typename CSN,
 	typename CE,
-	typename IRQ,
-	const uint8_t CHANNEL,
-	const uint8_t *RX_ADDR,
-	const uint8_t RX_ADDR2 = 0,
-	const uint8_t RX_ADDR3 = 0,
-	const uint8_t RX_ADDR4 = 0>
+	typename IRQ>
 struct NRF24_T {
 	static void init(void) {
-		int i;
-
-		for (i = 0; i < ARRAY_COUNT(nrf24_init_values); i++) {
+		for (int i = 0; i < ARRAY_COUNT(nrf24_init_values); i++) {
 			rw_reg(nrf24_init_values[i][0], nrf24_init_values[i][1]);
-		}
-		if (RX_ADDR != NULL) {
-			uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1;
-			write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P1, RX_ADDR, RF24_ADDR_WIDTH);
-			if (RX_ADDR2 >= 0) {
-				pipe_enable += RF24_ERX_P2;
-				rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, RX_ADDR2);
-			}
-			if (RX_ADDR3 >= 0) {
-				pipe_enable += RF24_ERX_P3;
-				rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, RX_ADDR3);
-			}
-			if (RX_ADDR4 >= 0) {
-				pipe_enable += RF24_ERX_P4;
-				rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, RX_ADDR4);
-			}
-			rw_reg(RF24_W_REGISTER + RF24_EN_RXADDR, pipe_enable);
-		}
-		if (CHANNEL != 255) {
-			rw_reg(RF24_W_REGISTER + RF24_RF_CH, CHANNEL);
 		}
 	}
 
@@ -166,24 +139,14 @@ struct NRF24_T {
 	}
 
 	static void set_rx_addr(const uint8_t *rx_addr,
-			const uint8_t rx_addr2 = 0,
-			const uint8_t rx_addr3 = 0,
-			const uint8_t rx_addr4 = 0) {
-		uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1;
-
+			uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1,
+			const int8_t rx_addr2 = 0,
+			const int8_t rx_addr3 = 0,
+			const int8_t rx_addr4 = 0) {
 		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P1, rx_addr, RF24_ADDR_WIDTH);
-		if (rx_addr2 >= 0) {
-			pipe_enable += RF24_ERX_P2;
-			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, rx_addr2);
-		}
-		if (rx_addr3 >= 0) {
-			pipe_enable += RF24_ERX_P3;
-			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, rx_addr3);
-		}
-		if (rx_addr4 >= 0) {
-			pipe_enable += RF24_ERX_P4;
-			rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, rx_addr4);
-		}
+		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, rx_addr2);
+		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, rx_addr3);
+		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, rx_addr4);
 		rw_reg(RF24_W_REGISTER + RF24_EN_RXADDR, pipe_enable);
 	}
 
@@ -230,9 +193,15 @@ struct NRF24_T {
 	}
 
 	static void start_tx(void) {
+		CE::set_low();
+		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP);
 	}
 
 	static void start_rx(void) {
+		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
+		TIMEOUT::set_timeout(10);
+		enter_idle<TIMEOUT>();
+		CE::set_high();
 	}
 
 	static uint8_t rw_reg(uint8_t reg, uint8_t value)
