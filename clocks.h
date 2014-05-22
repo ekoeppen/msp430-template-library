@@ -71,10 +71,11 @@ struct TIMEOUT_T {
 
 	static void set_timeout(const unsigned long milliseconds) {
 		timeout = milliseconds * CLOCK::frequency / 1000;
+		__bis_SR_register(GIE);
 	};
 
 	static inline bool timeout_triggered(void) {
-		return (timeout && (--timeout == 0));
+		return (!timeout || (--timeout == 0));
 	};
 };
 
