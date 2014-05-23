@@ -1,5 +1,4 @@
-#CPU = msp430f2013
-CPU = msp430g2553
+CPU ?= msp430g2553
 
 SRCS := $(wildcard *.c) $(wildcard *.cpp) $(wildcard ../../*.c) \
 	#../spi/spi.c \

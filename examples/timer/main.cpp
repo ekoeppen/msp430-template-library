@@ -1,8 +1,6 @@
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
-#include <spi.h>
-#include <uart.h>
 #include <io.h>
 #include <timer.h>
 

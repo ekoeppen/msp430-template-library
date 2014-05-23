@@ -9,7 +9,7 @@ template<const USCI_MODULE MODULE,
 	const int INSTANCE,
 	typename CLOCK,
 	const long SPEED = 9600>
-struct UART_T {
+struct USCI_UART_T {
 	typedef USCI_T<MODULE, INSTANCE> USCI;
 
 	static constexpr unsigned char idle_mode = LPM0_bits;
@@ -70,15 +70,15 @@ struct UART_T {
 };
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
-int UART_T<MODULE, INSTANCE, CLOCK, SPEED>::tx_count;
+int USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::tx_count;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
-int UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_count;
+int USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_count;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
-uint8_t *UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_buffer;
+uint8_t *USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_buffer;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
-uint8_t *UART_T<MODULE, INSTANCE, CLOCK, SPEED>::tx_buffer;
+uint8_t *USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::tx_buffer;
 
 #endif

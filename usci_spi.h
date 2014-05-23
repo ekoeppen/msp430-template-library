@@ -13,7 +13,7 @@ template<const USCI_MODULE MODULE,
 	const long FREQUENCY = 1000000,
 	const int DATA_LENGTH = 8,
 	const bool LSB = true>
-struct SPI_T {
+struct USCI_SPI_T {
 	static constexpr volatile unsigned char *CTL0 = USCI_REGISTER(MODULE, INSTANCE, 0);
 	static constexpr volatile unsigned char *CTL1 = USCI_REGISTER(MODULE, INSTANCE, 1);
 	static constexpr volatile unsigned char *BR0 = USCI_REGISTER(MODULE, INSTANCE, 2);
@@ -114,15 +114,15 @@ struct SPI_T {
 };
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-int SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_count;
+int USCI_SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_count;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-int SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_count;
+int USCI_SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_count;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-uint8_t *SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_buffer;
+uint8_t *USCI_SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_buffer;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-uint8_t *SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_buffer;
+uint8_t *USCI_SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_buffer;
 
 #endif

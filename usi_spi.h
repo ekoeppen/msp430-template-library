@@ -3,27 +3,15 @@
 
 #include <stdint.h>
 #include <clocks.h>
-#include <usci.h>
 
-template<const USCI_MODULE MODULE,
-	const int INSTANCE,
-	typename CLOCK,
+template<typename CLOCK,
 	const bool MASTER = true,
 	const int MODE = 3,
 	const long FREQUENCY = 1000000,
 	const int DATA_LENGTH = 8,
 	const bool LSB = true>
-struct SPI_T {
-	static constexpr volatile unsigned char *CTL0 = USCI_REGISTER(MODULE, INSTANCE, 0);
-	static constexpr volatile unsigned char *CTL1 = USCI_REGISTER(MODULE, INSTANCE, 1);
-	static constexpr volatile unsigned char *BR0 = USCI_REGISTER(MODULE, INSTANCE, 2);
-	static constexpr volatile unsigned char *BR1 = USCI_REGISTER(MODULE, INSTANCE, 3);
-	static constexpr volatile unsigned char *MCTL = USCI_REGISTER(MODULE, INSTANCE, 4);
-	static constexpr volatile unsigned char *STAT = USCI_REGISTER(MODULE, INSTANCE, 5);
-	static constexpr volatile unsigned char *RXBUF = USCI_REGISTER(MODULE, INSTANCE, 6);
-	static constexpr volatile unsigned char *TXBUF = USCI_REGISTER(MODULE, INSTANCE, 7);
-
-	static constexpr unsigned char idle_mode = LPM0_bits;
+struct USI_SPI_T {
+	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
 
 	static int tx_count;
 	static int rx_count;
@@ -31,16 +19,11 @@ struct SPI_T {
 	static uint8_t *tx_buffer;
 
 	static void init(void) {
-		*CTL1 |= UCSWRST;
-		if (MCTL != 0) *MCTL = 0x00;
-		*CTL0 = UCCKPH | UCMSB | (MASTER ? UCMST : 0) | UCMODE_0 | UCSYNC;  // SPI mode 0, master
-		*BR0 = (CLOCK::frequency / FREQUENCY) & 0xff;
-		*BR1 = (CLOCK::frequency / FREQUENCY) >> 8;
-		if (CLOCK::type == CLOCK_TYPE_ACLK) {
-			*CTL1 = UCSSEL_1;
-		} else {
-			*CTL1 = UCSSEL_2;
-		}
+		USICTL0 |= USISWRST;
+		USICTL1 = USICKPH;
+		USICKCTL = USISSEL_2 | USIDIV_0;
+		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
+		USISR = 0x0000;
 	}
 
 	static void disable(void) {
@@ -50,18 +33,19 @@ struct SPI_T {
 	}
 
 	static void enable_rx_irq(void) {
-		IE2 |= (MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
+		USICTL1 |= USIIE;
 	}
 
 	static uint8_t transfer(uint8_t data) {
-		IE2 |= (MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
-		*TXBUF = data;
+		USICTL1 |= USIIE;
+		USISRL = data;
+		USICNT = DATA_LENGTH;
 		tx_count = 0;
 		rx_buffer = 0;
 		do {
 			enter_idle(idle_mode);
-		} while (*STAT & UCBUSY);
-		return *RXBUF;
+		} while (USICTL1 & USIIFG);
+		return USISRL;
 	}
 
 	static void transfer(uint8_t *tx_data, int count, uint8_t *rx_data = 0) {
@@ -70,25 +54,26 @@ struct SPI_T {
 		tx_count = count - 1;
 		rx_buffer = rx_data;
 		rx_count = 0;
-		*TXBUF = *tx_data;
+		USISRL = *tx_data;
+		USICNT = DATA_LENGTH;
 		enter_idle(idle_mode);
 	}
 
 	static bool handle_irq(void) {
 		bool resume = false;
 
-		if (IFG2 & (MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG)) {
-			clear_rx_irq();
+		if (USICTL1 & USIIFG) {
 			if (tx_count > 0) {
 				enable_rx_irq();
 				if (rx_buffer) {
-					*rx_buffer = *RXBUF;
+					*rx_buffer = USISRL;
 					rx_buffer++;
 					rx_count++;
 				} else {
 					clear_rx_irq();
 				}
-				*TXBUF = *tx_buffer;
+				USISRL = *tx_buffer;
+				USICNT = DATA_LENGTH;
 				tx_buffer++;
 				tx_count--;
 			} else {
@@ -99,7 +84,7 @@ struct SPI_T {
 	}
 
 	static void clear_rx_irq(void) {
-		IFG2 &= ~(MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG);
+		USICTL1 &= ~USIIFG;
 	}
 
 	static void putc(char data) {
@@ -113,16 +98,16 @@ struct SPI_T {
 	}
 };
 
-template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-int SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_count;
+template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
+int USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_count;
 
-template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-int SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_count;
+template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
+int USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_count;
 
-template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-uint8_t *SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_buffer;
+template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
+uint8_t *USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_buffer;
 
-template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-uint8_t *SPI_T<MODULE, INSTANCE, CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_buffer;
+template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
+uint8_t *USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_buffer;
 
 #endif

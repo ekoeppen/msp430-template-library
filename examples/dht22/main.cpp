@@ -1,22 +1,31 @@
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
-#include <spi.h>
-#include <uart.h>
 #include <io.h>
 #include <timer.h>
+#ifdef __MSP430_HAS_USCI__
+#include <usci_uart.h>
+#else
+#include <soft_uart.h>
+#endif
 
 typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
 typedef SMCLK_T<> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0> LED_RED;
+#ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
 typedef GPIO_MODULE_T<1, 2, 3> TX;
+typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
+#else
+typedef GPIO_INPUT_T<1, 1> RX;
+typedef GPIO_OUTPUT_T<1, 2> TX;
+typedef SOFT_UART_T<TX, RX, SMCLK> UART;
+#endif
 typedef GPIO_PIN_T<1, 4, OUTPUT, HIGH> DHT_PIN;
 typedef GPIO_PORT_T<1, RX, TX, LED_RED, DHT_PIN> PORT1;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
-typedef UART_T<USCI_A, 0, SMCLK> UART;
 
 typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
 typedef TIMEOUT_T<WDT> TIMEOUT;

@@ -17,9 +17,9 @@ static constexpr unsigned int timer_regs[][3][10] = {
 		{TA2CTL_, TA2R_, TA2CCTL0_, TA2CCTL1_, TA2CCTL2_, 0, 0, 0, 0, TA2IV_}
 #else
 		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+#endif
 #else
 		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#endif
 #endif
 	},
 #ifdef TB0CTL_

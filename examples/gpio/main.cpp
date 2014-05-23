@@ -1,13 +1,16 @@
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
-#include <spi.h>
-#include <uart.h>
 #include <io.h>
+#ifdef __MSP430_HAS_USCI__
+#include <usci_uart.h>
+#else
+#include <soft_uart.h>
+#endif
 
 typedef ACLK_T<> ACLK;
 typedef SMCLK_T<> SMCLK;
-typedef WDT_T<ACLK, WDT_TIMER> WDT;
+typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
 typedef GPIO_OUTPUT_T<1, 6, HIGH> LED_GREEN;
