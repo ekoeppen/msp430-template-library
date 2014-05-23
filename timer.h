@@ -11,11 +11,15 @@ enum TIMER_MODULE {
 static constexpr unsigned int timer_regs[][3][10] = {
 	{
 		{TA0CTL_, TA0R_, TA0CCTL0_, TA0CCTL1_, TA0CCTL2_, 0, 0, 0, 0, TA0IV_},
+#ifdef TA1CTL_
 		{TA1CTL_, TA1R_, TA1CCTL0_, TA1CCTL1_, TA1CCTL2_, 0, 0, 0, 0, TA1IV_},
 #ifdef TA2CTL_
 		{TA2CTL_, TA2R_, TA2CCTL0_, TA2CCTL1_, TA2CCTL2_, 0, 0, 0, 0, TA2IV_}
 #else
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+#else
 		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#endif
 #endif
 	},
 #ifdef TB0CTL_
