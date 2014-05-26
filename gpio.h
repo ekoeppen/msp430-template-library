@@ -98,6 +98,7 @@ struct GPIO_PIN_T {
 	static constexpr unsigned char initial_level = (INITIAL_LEVEL ? bit_value : 0);
 
 	static void init(void) {
+		if (INITIAL_LEVEL) *PxOUT |= bit_value;
 		if (PIN_DIRECTION == OUTPUT) *PxDIR |= bit_value;
 		if (INTERRUPT) {
 			static_assert(PxIE != 0, "Port not interrupt capable");
@@ -116,7 +117,6 @@ struct GPIO_PIN_T {
 			*PxSEL2 |= bit_value;
 		}
 		if (RESISTOR) *PxREN |= bit_value;
-		if (INITIAL_LEVEL) *PxOUT |= bit_value;
 	};
 
 	static void set_high(void) {
@@ -125,6 +125,11 @@ struct GPIO_PIN_T {
 
 	static void set_low(void) {
 		*PxOUT &= ~bit_value;
+	}
+
+	static void set(bool value) {
+		if (value) set_high();
+		else set_low();
 	}
 
 	static bool get(void) {
