@@ -55,7 +55,21 @@ struct SMCLK_T {
 
 	static void init(void) {
 		switch (frequency) {
+			case 8000000:
+				BCSCTL1 = CALBC1_8MHZ;
+				DCOCTL = CALDCO_8MHZ;
+				break;
+			case 12000000:
+				BCSCTL1 = CALBC1_12MHZ;
+				DCOCTL = CALDCO_12MHZ;
+				break;
+			case 16000000:
+				BCSCTL1 = CALBC1_16MHZ;
+				DCOCTL = CALDCO_16MHZ;
 			case 1000000:
+				BCSCTL1 = CALBC1_1MHZ;
+				DCOCTL = CALDCO_1MHZ;
+				break;
 			default:
 				BCSCTL1 = CALBC1_1MHZ;
 				DCOCTL = CALDCO_1MHZ;

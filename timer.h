@@ -54,6 +54,7 @@ struct TIMER_T {
 	static constexpr volatile unsigned int *IV = (unsigned int *) timer_regs[MODULE][INSTANCE][9];
 
 	static constexpr unsigned char idle_mode = CLOCK_SOURCE::idle_mode;
+	static constexpr unsigned long frequency = CLOCK_SOURCE::frequency;
 
 	static void init(void) {
 		static_assert(CCTL0_INIT == 0 || CCTL0 != 0, "Timer CCTL0 register does not exist");
