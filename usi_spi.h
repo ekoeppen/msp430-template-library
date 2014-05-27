@@ -1,5 +1,5 @@
-#ifndef __SPI_H
-#define __SPI_H
+#ifndef __USI_SPI_H
+#define __USI_SPI_H
 
 #include <stdint.h>
 #include <clocks.h>
@@ -9,7 +9,7 @@ template<typename CLOCK,
 	const int MODE = 3,
 	const long FREQUENCY = 1000000,
 	const int DATA_LENGTH = 8,
-	const bool LSB = true>
+	const bool MSB = true>
 struct USI_SPI_T {
 	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
 

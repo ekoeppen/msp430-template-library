@@ -1,5 +1,5 @@
-#ifndef __SPI_H
-#define __SPI_H
+#ifndef __USCI_SPI_H
+#define __USCI_SPI_H
 
 #include <stdint.h>
 #include <clocks.h>
@@ -12,7 +12,7 @@ template<const USCI_MODULE MODULE,
 	const int MODE = 3,
 	const long FREQUENCY = 1000000,
 	const int DATA_LENGTH = 8,
-	const bool LSB = true>
+	const bool MSB = true>
 struct USCI_SPI_T {
 	static constexpr volatile unsigned char *CTL0 = USCI_REGISTER(MODULE, INSTANCE, 0);
 	static constexpr volatile unsigned char *CTL1 = USCI_REGISTER(MODULE, INSTANCE, 1);

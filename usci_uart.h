@@ -1,5 +1,5 @@
-#ifndef __UART_H
-#define __UART_H
+#ifndef __USCI_UART_H
+#define __USCI_UART_H
 
 #include <stdint.h>
 #include <clocks.h>
