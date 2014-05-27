@@ -1,12 +1,15 @@
 #ifndef __TLV_H
 #define __TLV_H
 
+#include <stdint.h>
+
 extern unsigned int __infoa;
 extern unsigned int __infob;
 extern unsigned int __infoc;
 extern unsigned int __infod;
 
-template<unsigned int *BEGIN>
+template<typename CLOCK,
+	unsigned int *BEGIN>
 struct TLV_T {
 	static unsigned verify_info_chk(void) {
 		const unsigned *p = BEGIN + 1;                      // Begin at word after checksum
@@ -33,6 +36,18 @@ struct TLV_T {
 			ITERATOR::handle_tag(d & 0xff, d >> 8, reinterpret_cast<void *>(p));
 			p += (d >> 9);
 		} while (p < BEGIN + 32);
+	};
+
+	static constexpr bool frequency_ok(const uint8_t divider) {
+		return CLOCK::frequency / (unsigned long) divider > 257000L && CLOCK::frequency / (unsigned long) divider < 476000L;
+	};
+
+	static constexpr uint8_t calculate_divider(const uint8_t divider) {
+		return frequency_ok(divider) ? divider : calculate_divider(divider - 1);
+	};
+
+	static void clear(void) {
+		FCTL2 = FWKEY + FSSEL_2 + (calculate_divider(64) - 1);
 	};
 };
 
