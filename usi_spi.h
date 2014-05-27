@@ -20,10 +20,9 @@ struct USI_SPI_T {
 
 	static void init(void) {
 		USICTL0 |= USISWRST;
-		USICTL1 = USICKPH;
-		USICKCTL = USISSEL_2 | USIDIV_0;
+		if (MODE == 0 || MODE == 1) USICTL1 = USICKPH;
+		USICKCTL = USISSEL_2 | USIDIV_0 | (MODE == 1 || MODE == 3 ? USICKPL : 0);
 		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
-		USISR = 0x0000;
 	}
 
 	static void disable(void) {
@@ -32,12 +31,12 @@ struct USI_SPI_T {
 	static int ready(void) {
 	}
 
-	static void enable_rx_irq(void) {
+	static void enable_irq(void) {
 		USICTL1 |= USIIE;
 	}
 
 	static uint8_t transfer(uint8_t data) {
-		USICTL1 |= USIIE;
+		enable_irq();
 		USISRL = data;
 		USICNT = DATA_LENGTH;
 		tx_count = 0;
@@ -49,7 +48,7 @@ struct USI_SPI_T {
 	}
 
 	static void transfer(uint8_t *tx_data, int count, uint8_t *rx_data = 0) {
-		enable_rx_irq();
+		enable_irq();
 		tx_buffer = tx_data + 1;
 		tx_count = count - 1;
 		rx_buffer = rx_data;
@@ -64,26 +63,24 @@ struct USI_SPI_T {
 
 		if (USICTL1 & USIIFG) {
 			if (tx_count > 0) {
-				enable_rx_irq();
 				if (rx_buffer) {
 					*rx_buffer = USISRL;
 					rx_buffer++;
 					rx_count++;
-				} else {
-					clear_rx_irq();
 				}
 				USISRL = *tx_buffer;
 				USICNT = DATA_LENGTH;
 				tx_buffer++;
 				tx_count--;
 			} else {
+				clear_irq();
 				resume = true;
 			}
 		}
 		return resume;
 	}
 
-	static void clear_rx_irq(void) {
+	static void clear_irq(void) {
 		USICTL1 &= ~USIIFG;
 	}
 

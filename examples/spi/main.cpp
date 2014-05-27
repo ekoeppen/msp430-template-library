@@ -1,31 +1,32 @@
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
+#include <io.h>
 #ifdef __MSP430_HAS_USCI__
 #include <usci_spi.h>
 #else
 #include <usi_spi.h>
 #endif
-#include <io.h>
 
 typedef ACLK_T<ACLK_SOURCE_LFXT1CLK> ACLK;
 typedef SMCLK_T<> SMCLK;
 
-typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
-
-typedef GPIO_OUTPUT_T<1, 4, HIGH> CS;
-typedef GPIO_MODULE_T<1, 5, 3> SCK;
-typedef GPIO_MODULE_T<1, 6, 3> MISO;
-typedef GPIO_MODULE_T<1, 7, 3> MOSI;
-
-typedef GPIO_PORT_T<1, LED_RED, CS, SCK, MISO, MOSI> PORT1;
-
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_64> WDT;
 #ifdef __MSP430_HAS_USCI__
 typedef USCI_SPI_T<USCI_B, 0, SMCLK> SPI;
+typedef GPIO_MODULE_T<1, 5, 3> SCK;
+typedef GPIO_MODULE_T<1, 6, 3> MISO;
+typedef GPIO_MODULE_T<1, 7, 3> MOSI;
 #else
 typedef USI_SPI_T<SMCLK> SPI;
+typedef GPIO_PIN_T<1, 5, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> SCK;
+typedef GPIO_PIN_T<1, 6, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MOSI;
+typedef GPIO_PIN_T<1, 7, INPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MISO;
 #endif
+typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
+typedef GPIO_OUTPUT_T<1, 4, HIGH> CS;
+
+typedef GPIO_PORT_T<1, LED_RED, CS, SCK, MISO, MOSI> PORT1;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
@@ -39,9 +40,8 @@ int main(void)
 	WDT::enable_irq();
 	while (1) {
 		LED_RED::toggle();
-
 		CS::set_low();
-		SPI::transfer((uint8_t *) "abc", 3);
+		SPI::transfer((uint8_t *) "abcd", 4);
 		CS::set_high();
 
 		TIMEOUT::set_timeout(500);
