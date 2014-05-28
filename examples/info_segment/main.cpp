@@ -11,7 +11,7 @@
 #endif
 
 typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<CLK_SOURCE_DCOCLK, 8000000> SMCLK;
+typedef SMCLK_T<CLK_SOURCE_DCOCLK, 1000000> SMCLK;
 
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
@@ -27,7 +27,8 @@ typedef GPIO_PORT_T<1, RX, TX> PORT1;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 
-typedef TLV_T<SMCLK, &__infoa> CALIBRATION_DATA;
+typedef TLV_T<SMCLK, WDT, &__infoa> CALIBRATION_DATA;
+typedef TLV_T<SMCLK, WDT, &__infod> SETTINGS;
 
 struct ITERATOR {
 	static void handle_tag(uint8_t tag, uint8_t length, void *value) {
@@ -46,8 +47,16 @@ int main(void)
 	TIMER::init();
 #endif
 	UART::init();
-	CALIBRATION_DATA::clear();
+	printf<UART>("Calibration data:\n");
 	CALIBRATION_DATA::iterate<ITERATOR>();
+	if (!SETTINGS::verify_checksum()) {
+		unsigned values[2] = {0x02fd, 0x1234};
+		printf<UART>("Clearing settings (checksum was %04x)\n", SETTINGS::checksum());
+		SETTINGS::write(values, values + 2);
+	}
+	printf<UART>("Settings:\n");
+	SETTINGS::iterate<ITERATOR>();
+	printf<UART>("Done.\n");
 	while (1) {
 		enter_idle();
 	}

@@ -50,6 +50,10 @@ struct WDT_T {
 		WDTCTL = WDTPW + (WDTCTL & (0x00ff & ~WDTHOLD)) + WDTPW;
 	};
 
+	static bool enabled(void) {
+		return !(WDTCTL & WDTHOLD);
+	}
+
 	static void disable(void) {
 		WDTCTL = WDTPW + WDTHOLD;
 	}
