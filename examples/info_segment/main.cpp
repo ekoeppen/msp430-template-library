@@ -39,6 +39,8 @@ struct ITERATOR {
 
 int main(void)
 {
+	unsigned settings_value = 0x6633;
+
 	WDT::disable();
 	ACLK::init();
 	SMCLK::init();
@@ -54,6 +56,7 @@ int main(void)
 		printf<UART>("Clearing settings (checksum was %04x)\n", SETTINGS::checksum());
 		SETTINGS::write(values, values + 2);
 	}
+	SETTINGS::set_tag(0xfd, &settings_value);
 	printf<UART>("Settings:\n");
 	SETTINGS::iterate<ITERATOR>();
 	printf<UART>("Done.\n");

@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 extern unsigned int __infoa;
 extern unsigned int __infob;
@@ -22,11 +23,10 @@ struct TLV_T {
 		return checksum() + *BEGIN == 0;
 	}
 
-	static void const *find_tag(const unsigned tag, const unsigned *p = BEGIN + 1, const unsigned *end = BEGIN + 32) {
-		do {                                                //
-			const unsigned d = *p++;
-			if ((d & 0xFF) == tag) return (void *)p;
-			p += (d >> 9);
+	static unsigned *find_tag(const uint8_t tag, unsigned *p = BEGIN + 1, const unsigned *end = BEGIN + 32) {
+		do {
+			if ((*p & 0xFF) == tag) return p;
+			p += (*p >> 9) + 1;
 		} while (p < end);
 		return 0;
 	}
@@ -81,6 +81,21 @@ struct TLV_T {
 
 		if (wdt_enabled) WDT::enable();
 		if (gie_enabled) __bis_SR_register(GIE);
+	}
+
+	static void set_tag(const uint8_t tag, const void *value) {
+		unsigned info[31];
+		unsigned *p;
+
+		for (int i = 0; i < 31; i++) {
+			info[i] = BEGIN[i + 1];
+		}
+		p = find_tag(tag, info, info + 31);
+		if (p != NULL) {
+			uint8_t len = *p >> 8;
+			memcpy(p + 1, value, len);
+			write(info, info + 31);
+		}
 	}
 };
 

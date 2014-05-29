@@ -23,6 +23,8 @@ struct USI_SPI_T {
 		if (MODE == 0 || MODE == 1) USICTL1 = USICKPH;
 		USICKCTL = USISSEL_2 | USIDIV_0 | (MODE == 1 || MODE == 3 ? USICKPL : 0);
 		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
+		USICNT = 8;
+		USISRL = 0;
 	}
 
 	static void disable(void) {

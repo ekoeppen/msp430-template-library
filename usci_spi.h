@@ -33,7 +33,8 @@ struct USCI_SPI_T {
 	static void init(void) {
 		*CTL1 |= UCSWRST;
 		if (MCTL != 0) *MCTL = 0x00;
-		*CTL0 = UCCKPH | UCMSB | (MASTER ? UCMST : 0) | UCMODE_0 | UCSYNC;  // SPI mode 0, master
+		*CTL0 = (MODE == 0 || MODE == 2 ? UCCKPH : 0) |
+			(MODE == 2 || MODE == 3 ? UCCKPL : 0) | UCMSB | (MASTER ? UCMST : 0) | UCMODE_0 | UCSYNC;
 		*BR0 = (CLOCK::frequency / FREQUENCY) & 0xff;
 		*BR1 = (CLOCK::frequency / FREQUENCY) >> 8;
 		if (CLOCK::type == CLOCK_TYPE_ACLK) {

@@ -1,14 +1,23 @@
+#define USE_SOFT_SPI
+
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
 #include <io.h>
 #include <nrf24.h>
-#ifdef __MSP430_HAS_USCI__
-#include <usci_uart.h>
+#include <timer.h>
+#if defined(USE_SOFT_SPI)
+#include <soft_spi.h>
+#elif defined __MSP430_HAS_USCI__
 #include <usci_spi.h>
 #else
-#include <soft_uart.h>
 #include <usi_spi.h>
+#endif
+
+#if defined __MSP430_HAS_USCI__
+#include <usci_uart.h>
+#else
+#include <soft_uart.h>
 #endif
 
 extern constexpr uint8_t rx_addr[5] = {
@@ -18,36 +27,48 @@ extern constexpr uint8_t rx_addr[5] = {
 const uint8_t BROADCAST_ADDR[] = {0x00, 0xf0, 0xf0, 0xf0, 0xf0};
 
 typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<> SMCLK;
+typedef SMCLK_T<CLK_SOURCE_DCOCLK, 12000000> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
 typedef GPIO_MODULE_T<1, 2, 3> TX;
 typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
-typedef USCI_SPI_T<USCI_B, 0, SMCLK> SPI;
 #else
 typedef GPIO_INPUT_T<1, 1> RX;
 typedef GPIO_OUTPUT_T<1, 2> TX;
-typedef SOFT_UART_T<TX, RX, SMCLK> UART;
-typedef USI_SPI_T<SMCLK> SPI;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
+typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
-typedef GPIO_MODULE_T<1, 5, 3> SCK;
+
+#if defined(USE_SOFT_SPI)
+typedef GPIO_OUTPUT_T<1, 5> SCLK;
+typedef GPIO_INPUT_T<1, 6> MISO;
+typedef GPIO_OUTPUT_T<1, 7> MOSI;
+typedef SOFT_SPI_T<SMCLK, SCLK, MOSI, MISO, true, 0> SPI;
+#elif defined(__MSP430_HAS_USCI__)
+typedef GPIO_MODULE_T<1, 5, 3> SCLK;
 typedef GPIO_MODULE_T<1, 6, 3> MISO;
 typedef GPIO_MODULE_T<1, 7, 3> MOSI;
-
+typedef USCI_SPI_T<USCI_B, 0, SMCLK> SPI;
+#else
+typedef GPIO_PIN_T<1, 5, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> SCLK;
+typedef GPIO_PIN_T<1, 6, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MOSI;
+typedef GPIO_PIN_T<1, 7, INPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MISO;
+typedef USI_SPI_T<SMCLK, true, 0> SPI;
+#endif
 typedef GPIO_OUTPUT_T<2, 0, LOW> CE;
 typedef GPIO_OUTPUT_T<2, 1, HIGH> CSN;
 typedef GPIO_INPUT_T<2, 2> IRQ;
 
-typedef GPIO_PORT_T<1, LED_RED, SCK, MISO, MOSI, RX, TX> PORT1;
-typedef GPIO_PORT_T<2, SCK, CSN, CE> PORT2;
+typedef GPIO_PORT_T<1, LED_RED, SCLK, MISO, MOSI, RX, TX> PORT1;
+typedef GPIO_PORT_T<2, SCLK, CSN, CE> PORT2;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
-typedef NRF24_T<TIMEOUT, SPI, SCK, CSN, CE, IRQ> NRF24;
+typedef NRF24_T<TIMEOUT, SPI, SCLK, CSN, CE, IRQ> NRF24;
 
 int main(void)
 {
@@ -61,7 +82,11 @@ int main(void)
 
 	PORT1::init();
 	PORT2::init();
+	LED_RED::set_low();
 
+#ifndef __MSP430_HAS_USCI__
+	TIMER::init();
+#endif
 	UART::init();
 	printf<UART>("NRF24 example start.\n");
 
@@ -88,6 +113,7 @@ void watchdog_irq(void)
 	if (TIMEOUT::timeout_triggered()) exit_idle();
 }
 
+#ifndef USE_SOFT_SPI
 #ifdef __MSP430_HAS_USCI__
 void usci_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
 void usci_irq(void)
@@ -100,4 +126,5 @@ void usi_irq(void)
 {
 	if (SPI::handle_irq()) exit_idle();
 }
+#endif
 #endif
