@@ -46,6 +46,10 @@ struct WDT_T {
 		IE1 &= ~WDTIE;
 	};
 
+	static bool irq_enabled(void) {
+		return IE1 & WDTIE;
+	}
+
 	static void enable(void) {
 		WDTCTL = WDTPW + (WDTCTL & (0x00ff & ~WDTHOLD)) + WDTPW;
 	};

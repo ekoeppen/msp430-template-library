@@ -123,7 +123,6 @@ static constexpr uint8_t nrf24_init_values[][2] = {
 
 template<typename TIMEOUT,
 	typename SPI,
-	typename SCK,
 	typename CSN,
 	typename CE,
 	typename IRQ>
@@ -202,6 +201,11 @@ struct NRF24_T {
 		TIMEOUT::set_timeout(10);
 		enter_idle<TIMEOUT>();
 		CE::set_high();
+	}
+
+	static void power_down(void) {
+		CE::set_low();
+		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC);
 	}
 
 	static uint8_t rw_reg(uint8_t reg, uint8_t value)

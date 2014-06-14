@@ -68,7 +68,7 @@ typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
-typedef NRF24_T<TIMEOUT, SPI, SCLK, CSN, CE, IRQ> NRF24;
+typedef NRF24_T<TIMEOUT, SPI, CSN, CE, IRQ> NRF24;
 
 int main(void)
 {

@@ -35,10 +35,11 @@ inline void exit_idle(void) {
 }
 
 template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_VLOCLK,
+	const int FREQUENCY = 0,
 	const int DIVIDER = 0>
 struct ACLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_ACLK;
-	static constexpr long frequency = (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768);
+	static constexpr long frequency = (FREQUENCY == 0 ? (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768) : FREQUENCY);
 	static constexpr unsigned char idle_mode = LPM3_bits;
 
 	static void init(void) {
@@ -80,10 +81,11 @@ struct SMCLK_T {
 
 template<typename CLOCK>
 struct TIMEOUT_T {
-	static unsigned long timeout;
+	static volatile unsigned long timeout;
 	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
 
 	static void set_timeout(const unsigned long milliseconds) {
+		__bic_SR_register(GIE);
 		timeout = milliseconds * CLOCK::frequency / 1000;
 		__bis_SR_register(GIE);
 	};
@@ -94,6 +96,6 @@ struct TIMEOUT_T {
 };
 
 template<typename CLOCK>
-unsigned long TIMEOUT_T<CLOCK>::timeout;
+volatile unsigned long TIMEOUT_T<CLOCK>::timeout;
 
 #endif

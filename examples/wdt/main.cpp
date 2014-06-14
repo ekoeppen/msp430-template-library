@@ -5,6 +5,7 @@
 #ifdef __MSP430_HAS_USCI__
 #include <usci_uart.h>
 #else
+#include <timer.h>
 #include <soft_uart.h>
 #endif
 
@@ -22,7 +23,8 @@ typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
 #else
 typedef GPIO_INPUT_T<1, 1> RX;
 typedef GPIO_OUTPUT_T<1, 2> TX;
-typedef SOFT_UART_T<TX, RX, SMCLK> UART;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
+typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
 
 typedef GPIO_PORT_T<1, LED_RED, LED_GREEN, RX, TX> PORT1;
@@ -35,6 +37,9 @@ int main(void)
 	WDT::init();
 	PORT1::init();
 	WDT::enable_irq();
+#ifndef __MSP430_HAS_USCI__
+	TIMER::init();
+#endif
 	UART::init();
 	printf<UART>("WDT example start\n");
 	while (1) {
