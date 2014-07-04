@@ -89,7 +89,7 @@ int main(void)
 		r = read_dht<TIMER, DHT_PIN>(buffer);
 		printf<UART>("%d %d (%d)\n",
 		       ((buffer[1] << 8) + buffer[2]), ((buffer[3] << 8) + buffer[4]), r);
-		TIMEOUT::set_timeout(1000);
+		TIMEOUT::set(1000);
 		enter_idle<TIMEOUT>();
 	}
 }
@@ -97,5 +97,5 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (TIMEOUT::timeout_triggered()) exit_idle();
+	if (TIMEOUT::count_down()) exit_idle();
 }

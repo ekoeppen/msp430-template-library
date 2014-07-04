@@ -1,4 +1,5 @@
 #define USE_SOFT_SPI
+#define SENDING
 
 #include <gpio.h>
 #include <clocks.h>
@@ -21,7 +22,7 @@
 #endif
 
 extern constexpr uint8_t rx_addr[5] = {
-	0x03, 0xf0, 0xf0, 0xf0, 0xf0
+	0xff, 0xf0, 0xf0, 0xf0, 0xf0
 };
 
 const uint8_t BROADCAST_ADDR[] = {0x00, 0xf0, 0xf0, 0xf0, 0xf0};
@@ -99,18 +100,46 @@ int main(void)
 	NRF24::set_channel(70);
 	NRF24::read_regs(regs);
 	hex_dump_bytes<UART>(regs, sizeof(regs));
+#if (defined SENDING)
 	while (1) {
+		NRF24::start_tx();
 		NRF24::tx_buffer(BROADCAST_ADDR, packet, sizeof(packet), false);
 		LED_RED::toggle();
-		TIMEOUT::set_timeout(1000);
+		TIMEOUT::set(1000);
 		enter_idle<WDT>();
 	}
+#elif (defined SCANNING)
+	NRF24::start_rx();
+	while (1) {
+		for (int i = 0; i < 127; i++) {
+			NRF24::set_channel(i);
+			printf<UART>("%03d: ", i);
+			LED_RED::toggle();
+			for (int j = 0; j < 5; j++) {
+				if (NRF24::rw_reg(RF24_RPD, RF24_NOP)) {
+					UART::putc('*');
+				}
+				TIMEOUT::set(100);
+				enter_idle<WDT>();
+			}
+			UART::putc('\n');
+		}
+	}
+#elif (defined RECEIVING)
+	NRF24::start_rx();
+	while (1) {
+		uint8_t pipe, n;
+		n = NRF24::rx_buffer(packet, sizeof(packet), &pipe, 60000L);
+		UART::puts("------------------\n");
+		hex_dump_bytes<UART>(packet, n);
+	}
+#endif
 }
 
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (TIMEOUT::timeout_triggered()) exit_idle();
+	if (TIMEOUT::count_down()) exit_idle();
 }
 
 #ifndef USE_SOFT_SPI

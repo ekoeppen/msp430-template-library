@@ -44,7 +44,7 @@ int main(void)
 	printf<UART>("WDT example start\n");
 	while (1) {
 		LED_RED::toggle();
-		TIMEOUT::set_timeout(60000 * 30);
+		TIMEOUT::set(60000 * 30);
 		enter_idle<WDT>();
 		printf<UART>("Timeout\n");
 	}
@@ -54,5 +54,5 @@ void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
 	LED_GREEN::toggle();
-	if (TIMEOUT::timeout_triggered()) exit_idle();
+	if (TIMEOUT::count_down()) exit_idle();
 }

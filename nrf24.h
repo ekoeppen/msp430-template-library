@@ -118,7 +118,7 @@ static constexpr uint8_t nrf24_init_values[][2] = {
 	{RF24_W_REGISTER + RF24_RF_SETUP, RF24_RF_DR_LOW},
 	{RF24_W_REGISTER + RF24_DYNPD, RF24_DPL_P0 + RF24_DPL_P1 + RF24_DPL_P2 + RF24_DPL_P3 + RF24_DPL_P4},
 	{RF24_W_REGISTER + RF24_FEATURE, RF24_EN_DPL + RF24_EN_ACK_PAY + RF24_EN_DYN_ACK},
-	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP}
+	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC}
 };
 
 template<typename TIMEOUT,
@@ -156,7 +156,7 @@ struct NRF24_T {
 		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(auto_ack ? RF24_W_TX_PAYLOAD : RF24_W_TX_PAYLOAD_NOACK, data, len);
 		CE::set_high();
-		TIMEOUT::set_timeout(10);
+		TIMEOUT::set(10);
 		enter_idle<TIMEOUT>();
 		CE::set_low();
 		while (IRQ::is_high());
@@ -167,22 +167,22 @@ struct NRF24_T {
 		int n = 0;
 
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		TIMEOUT::set_timeout(10);
+		TIMEOUT::set(10);
 		enter_idle<TIMEOUT>();
 		CE::set_high();
-		TIMEOUT::set_timeout(timeout);
+		TIMEOUT::set(timeout);
 		do {
 			if (!(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY)) {
 				n = rw_reg(RF24_R_RX_PL_WID, RF24_NOP);
 				rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
 			} else {
-				while (IRQ::is_high() && TIMEOUT::timeout > 0);
+				while (IRQ::is_high() && !TIMEOUT::triggered());
 			}
-		} while (n == 0 && TIMEOUT::timeout > 0);
+		} while (n == 0 && !TIMEOUT::triggered());
 		if (n > 0) {
 			if (n > max_len) n = max_len;
 			if (pipe != 0) {
-				*pipe = (rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_NOP) >> 1) & 0x03;
+				*pipe = (rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) >> 1) & 0x03;
 			}
 			read_reg(RF24_R_RX_PAYLOAD, data, n);
 		}
@@ -198,7 +198,7 @@ struct NRF24_T {
 
 	static void start_rx(void) {
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		TIMEOUT::set_timeout(10);
+		TIMEOUT::set(10);
 		enter_idle<TIMEOUT>();
 		CE::set_high();
 	}

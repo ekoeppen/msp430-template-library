@@ -6,6 +6,7 @@
 
 struct SOFT_UART_STATUS {
 	bool framing_error: 1;
+	bool rx_available: 1;
 };
 
 template<typename TIMER,
@@ -49,20 +50,22 @@ struct SOFT_UART_T {
 		while (TIMER::counter() - st < bit_time);
 	}
 
-	static void puts(char *data) {
+	static void puts(const char *data) {
 		while (*data) {
 			putc(*data++);
 		};
 	}
 
+	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static char getc(void) {
 		unsigned char c = 0;
 		unsigned st;
 
-		status.framing_error = true;
-		while (RX::is_high());
-		st = TIMER::counter();
+		status.framing_error = false;
+		status.rx_available = false;
+		while (RX::is_high() && !TIMEOUT::triggered());
 		if (RX::is_low()) {
+			st = TIMER::counter();
 			while (TIMER::counter() - st < bit_time);
 			for (unsigned char i = 1; i != 0; i <<= 1) {
 				st += bit_time;
@@ -73,6 +76,9 @@ struct SOFT_UART_T {
 			while (TIMER::counter() - st < bit_time);
 			if (RX::is_high()) {
 				status.framing_error = false;
+				status.rx_available = true;
+			} else {
+				status.framing_error = true;
 			}
 		}
 		return c;

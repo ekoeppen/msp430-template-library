@@ -31,7 +31,7 @@ int main(void)
 			while (TIMER::counter() < end) ;
 		}
 		LED_GREEN::set_low();
-		TIMEOUT::set_timeout(1000);
+		TIMEOUT::set(1000);
 		enter_idle<TIMEOUT>();
 	}
 }
@@ -39,7 +39,7 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (TIMEOUT::timeout_triggered()) {
+	if (TIMEOUT::count_down()) {
 		exit_idle();
 	}
 }

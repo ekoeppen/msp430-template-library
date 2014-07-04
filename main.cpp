@@ -39,7 +39,7 @@ int main(void)
 		SPI::transfer((uint8_t *) "abc", 3);
 		CS::set_high();
 
-		TIMEOUT::set_timeout(1000);
+		TIMEOUT::set(1000);
 		printf<UART>("WDT frequency: %d Alarm: %d\n", WDT::frequency, TIMEOUT::timeout);
 		enter_idle<WDT>();
 	}
@@ -48,7 +48,7 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (TIMEOUT::timeout_triggered()) exit_idle();
+	if (TIMEOUT::count_down()) exit_idle();
 }
 
 void usci_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));

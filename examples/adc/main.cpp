@@ -4,6 +4,7 @@
 #ifdef __MSP430_HAS_USCI__
 #include <usci_uart.h>
 #else
+#include <timer.h>
 #include <soft_uart.h>
 #endif
 #include <io.h>
@@ -19,7 +20,8 @@ typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
 #else
 typedef GPIO_INPUT_T<1, 1> RX;
 typedef GPIO_OUTPUT_T<1, 2> TX;
-typedef SOFT_UART_T<TX, RX, SMCLK> UART;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
+typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
 typedef GPIO_PORT_T<1, RX, TX> PORT1;
 
@@ -67,11 +69,19 @@ unsigned read_voltage(void)
 	unsigned adc, voltage;
 
 	ADC10CTL1 = INCH_11 | ADC10DIV_3 | ADC10SSEL_3;
-	ADC10CTL0 = ADC10SHT_3 | ADC10ON | ENC | REF2_5V | ADC10SC | REFON | SREF_1;
+	ADC10CTL0 = ADC10SHT_3 | ADC10ON | ENC | ADC10SC | REFON | SREF_1;
 	while (ADC10CTL1 & ADC10BUSY) ;
 	adc = ADC10MEM;
 	ADC10CTL0 &= ~ENC;
-	voltage = ((unsigned long) adc * 5L);
+	if (adc >= 0x380) {
+		ADC10CTL0 |= ENC | REF2_5V | ADC10SC;
+		while (ADC10CTL1 & ADC10BUSY) ;
+		adc = ADC10MEM;
+		ADC10CTL0 &= ~ENC;
+		voltage = ((unsigned long) adc * 5L * 125L / 128L);
+	} else {
+		voltage = ((unsigned long) adc * 3L * 125L / 128L);
+	}
 
 	return voltage;
 }
@@ -97,7 +107,7 @@ int main(void)
 		printf<UART>("\rADC: no ref: %d ref 2.5: %d norm: %d r: %d V: %d\033[K",
 			     adc, adc_ref, adc_norm, r, vcc_milli);
 		ADC_CHANNEL_3::disable();
-		TIMEOUT::set_timeout(200);
+		TIMEOUT::set(200);
 		enter_idle<TIMEOUT>();
 	}
 }
@@ -105,5 +115,5 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (TIMEOUT::timeout_triggered()) exit_idle();
+	if (TIMEOUT::count_down()) exit_idle();
 }

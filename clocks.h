@@ -3,7 +3,7 @@
 
 enum CLOCK_TYPE {
 	CLOCK_TYPE_ACLK,
-	CLOCK_TYPE_SCLK,
+	CLOCK_TYPE_MCLK,
 	CLOCK_TYPE_SMCLK
 };
 
@@ -55,6 +55,43 @@ struct SMCLK_T {
 	static constexpr unsigned char idle_mode = LPM0_bits;
 
 	static void init(void) {
+		if (SOURCE == CLK_SOURCE_DCOCLK) {
+			BCSCTL2 &= ~SELS;
+			switch (frequency) {
+			case 8000000:
+				BCSCTL1 = CALBC1_8MHZ;
+				DCOCTL = CALDCO_8MHZ;
+				break;
+			case 12000000:
+				BCSCTL1 = CALBC1_12MHZ;
+				DCOCTL = CALDCO_12MHZ;
+				break;
+			case 16000000:
+				BCSCTL1 = CALBC1_16MHZ;
+				DCOCTL = CALDCO_16MHZ;
+			case 1000000:
+				BCSCTL1 = CALBC1_1MHZ;
+				DCOCTL = CALDCO_1MHZ;
+				break;
+			default:
+				BCSCTL1 = CALBC1_1MHZ;
+				DCOCTL = CALDCO_1MHZ;
+				break;
+			}
+		} else {
+			BCSCTL2 |= SELS;
+		}
+	};
+};
+
+template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
+	const long FREQUENCY = 1000000>
+struct MCLK_T {
+	static constexpr CLOCK_TYPE type = CLOCK_TYPE_MCLK;
+	static constexpr long frequency = FREQUENCY;
+	static constexpr unsigned char idle_mode = LPM0_bits;
+
+	static void init(void) {
 		switch (frequency) {
 			case 8000000:
 				BCSCTL1 = CALBC1_8MHZ;
@@ -84,15 +121,41 @@ struct TIMEOUT_T {
 	static volatile unsigned long timeout;
 	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
 
-	static void set_timeout(const unsigned long milliseconds) {
+	static void set(const unsigned long milliseconds) {
 		__bic_SR_register(GIE);
 		timeout = milliseconds * CLOCK::frequency / 1000;
 		__bis_SR_register(GIE);
 	};
 
-	static inline bool timeout_triggered(void) {
+	static inline bool count_down(void) {
 		return (!timeout || (--timeout == 0));
 	};
+
+	static inline bool triggered(void) {
+		return timeout == 0;
+	};
+
+	static inline unsigned long get() {
+		return timeout;
+	};
+};
+
+struct TIMEOUT_NEVER {
+	static constexpr unsigned char idle_mode = LPM0_bits;
+
+	static void set(const unsigned long milliseconds) { }
+	static inline bool count_down(void) { return false; }
+	static inline bool triggered(void) { return false; }
+	static inline unsigned long get() { return 1; }
+};
+
+struct TIMEOUT_IMMEDIATELY {
+	static constexpr unsigned char idle_mode = LPM0_bits;
+
+	static void set(const unsigned long milliseconds) { }
+	static inline bool count_down(void) { return true; }
+	static inline bool triggered(void) { return true; }
+	static inline unsigned long get() { return 0; }
 };
 
 template<typename CLOCK>

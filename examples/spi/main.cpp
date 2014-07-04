@@ -53,7 +53,7 @@ int main(void)
 		SPI::transfer((uint8_t *) "abcd", 4);
 		CS::set_high();
 
-		TIMEOUT::set_timeout(500);
+		TIMEOUT::set(500);
 		enter_idle<WDT>();
 	}
 }
@@ -61,7 +61,7 @@ int main(void)
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
-	if (TIMEOUT::timeout_triggered()) exit_idle();
+	if (TIMEOUT::count_down()) exit_idle();
 }
 
 #if !defined(USE_SOFT_SPI)
