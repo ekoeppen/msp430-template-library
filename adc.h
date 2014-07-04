@@ -4,7 +4,7 @@
 #include <clocks.h>
 
 struct ADC10OSC {
-	static constexpr unsigned char idle_mode = LPM4_bits;
+	static constexpr unsigned char idle_mode = LPM0_bits;
 };
 
 template<typename CLOCK,
@@ -24,6 +24,12 @@ struct ADC10_T {
 	};
 
 	static unsigned int sample_once(void) {
+		ADC10CTL0 |= ENC + ADC10SC;
+		while (ADC10CTL1 & ADC10BUSY) {
+			enter_idle<CLOCK>();
+		}
+		ADC10CTL &= ~ENC;
+		return ADC10MEM;
 	};
 
 	static void disable(void) {
