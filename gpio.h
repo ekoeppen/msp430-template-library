@@ -231,10 +231,9 @@ struct GPIO_PORT_T {
 	static void init(void) {
 		unsigned char reg;
 
-		reg =
+		*PxOUT =
 			PIN0::initial_level | PIN1::initial_level | PIN2::initial_level | PIN3::initial_level |
 			PIN4::initial_level | PIN5::initial_level | PIN6::initial_level | PIN7::initial_level;
-		if (reg) *PxOUT = reg;
 
 		reg =
 			PIN0::direction | PIN1::direction | PIN2::direction | PIN3::direction |
