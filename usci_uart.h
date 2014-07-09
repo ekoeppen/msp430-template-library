@@ -19,8 +19,8 @@ struct USCI_UART_T {
 
 	static constexpr unsigned char idle_mode = LPM0_bits;
 	static USCI_UART_STATUS status;
-	static int tx_count;
-	static int rx_count;
+	static volatile int tx_count;
+	static volatile int rx_count;
 	static uint8_t *rx_buffer;
 	static uint8_t *tx_buffer;
 
@@ -48,6 +48,8 @@ struct USCI_UART_T {
 			*USCI::CTL1 = UCSSEL_2;
 		}
 		*USCI::CTL1 &= ~UCSWRST;
+		__bis_SR_register(GIE);
+		USCI::enable_tx_irq();
 	}
 
 	static void disable(void) {
@@ -56,45 +58,61 @@ struct USCI_UART_T {
 	static int ready(void) {
 	}
 
+	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(uint8_t *tx_data, int count) {
-		USCI::enable_rx_irq();
-		tx_buffer = tx_data + 1;
-		tx_count = count - 1;
-		*USCI::TXBUF = *tx_data;
-		USCI::enter_idle();
+		while (!TIMEOUT::triggered() && tx_count > 0) {
+			enter_idle<TIMEOUT>(idle_mode());
+		}
+		tx_buffer = tx_data;
+		tx_count = count;
+		IFG2 |= (MODULE == USCI_A ? UCA0TXIFG : UCB0TXIFG);
+		while (!TIMEOUT::triggered() && tx_count > 0) {
+			enter_idle<TIMEOUT>(idle_mode());
+		}
 	}
 
 	static bool handle_irq(void) {
 		bool resume = false;
 
+		if (IFG2 & (MODULE == USCI_A ? UCA0TXIFG : UCB0TXIFG)) {
+			USCI::clear_tx_irq();
+			if (tx_count > 0) {
+				*USCI::TXBUF = *tx_buffer;
+				tx_buffer++;
+				tx_count--;
+			} else {
+				resume = true;
+			}
+		}
 		return resume;
 	}
 
 	static void putc(char data) {
-		while (!(IFG2 & (MODULE == USCI_A ? UCA0TXIFG : UCB0TXIFG))) ;
 		*USCI::TXBUF = data;
+		USCI::enter_idle();
 	}
 
 	static void puts(const char *data) {
-		while (*data) {
-			putc(*data++);
-		};
+		unsigned n;
+
+		for (n = 0; data[n] != '\0'; n++) ;
+		transfer((uint8_t *) data, n);
 	}
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
-		static char getc() {
-			status.rx_available = false;
-			while (!(IFG2 & (MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG)) && !TIMEOUT::triggered());
-			if (!TIMEOUT::triggered()) status.rx_available = true;
-			return *USCI::RXBUF;
-		}
+	static char getc() {
+		status.rx_available = false;
+		while (!(IFG2 & (MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG)) && !TIMEOUT::triggered());
+		if (!TIMEOUT::triggered()) status.rx_available = true;
+		return *USCI::RXBUF;
+	}
 };
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
-int USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::tx_count;
+volatile int USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::tx_count;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
-int USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_count;
+volatile int USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_count;
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const long SPEED>
 uint8_t *USCI_UART_T<MODULE, INSTANCE, CLOCK, SPEED>::rx_buffer;
