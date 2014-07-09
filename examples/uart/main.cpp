@@ -10,7 +10,7 @@
 #endif
 
 typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<CLK_SOURCE_DCOCLK, 1000000> SMCLK;
+typedef SMCLK_T<CLK_SOURCE_DCOCLK, 12000000> SMCLK;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 #ifdef __MSP430_HAS_USCI__
@@ -23,7 +23,9 @@ typedef GPIO_OUTPUT_T<1, 2, HIGH> TX;
 typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
 typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
-typedef GPIO_PORT_T<1, RX, TX> PORT1;
+typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
+typedef GPIO_OUTPUT_T<1, 6, LOW> LED_GREEN;
+typedef GPIO_PORT_T<1, RX, TX, LED_GREEN, LED_RED> PORT1;
 
 int main(void)
 {
@@ -38,8 +40,27 @@ int main(void)
 #endif
 	UART::init();
 	while (1) {
-		printf<UART>("Press any key...\n");
+#if 0
+		UART::puts("Press any key...\n");
 		c = UART::getc();
 		printf<UART>("Key pressed = %c (code %d, hex %x, error %d)\n", c, c, c, UART::status.framing_error);
+#endif
+		if (UART::tx_count > 0) {
+			LED_RED::set_high();
+			while (UART::tx_count > 0);
+			LED_RED::set_low();
+		}
+		UART::transfer((uint8_t *) "0123456789012345678901234567890123456789", 40);
+		LED_GREEN::set_high();
 	}
 }
+
+#ifdef __MSP430_HAS_USCI__
+void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
+void usci_tx_irq(void)
+{
+	if (UART::handle_irq()) {
+		exit_idle();
+	}
+}
+#endif
