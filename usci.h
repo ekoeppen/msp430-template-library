@@ -38,12 +38,20 @@ struct USCI_T {
 		IE2 |= (MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
 	}
 
+	static void enable_tx_irq(void) {
+		IE2 |= (MODULE == USCI_A ? UCA0TXIE : UCB0TXIE);
+	}
+
 	static inline void enter_idle(void) {
 		__bis_SR_register(LPM0_bits + GIE);
 	}
 
 	static void clear_rx_irq(void) {
 		IFG2 &= ~(MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG);
+	}
+
+	static void clear_tx_irq(void) {
+		IFG2 &= ~(MODULE == USCI_A ? UCA0TXIFG : UCB0TXIFG);
 	}
 
 	static inline void resume_irq(void) {
