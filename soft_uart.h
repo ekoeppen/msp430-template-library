@@ -14,7 +14,7 @@ template<typename TIMER,
 	typename RX,
 	const long SPEED = 9600>
 struct SOFT_UART_T {
-	static constexpr unsigned char idle_mode = TIMER::idle_mode;
+	static constexpr uint8_t idle_mode(void) { return TIMER::idle_mode };
 	static constexpr unsigned int bit_time = TIMER::frequency / SPEED;
 
 	static SOFT_UART_STATUS status;

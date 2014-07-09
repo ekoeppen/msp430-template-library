@@ -11,7 +11,7 @@ template<typename CLOCK,
 	const int DATA_LENGTH = 8,
 	const bool MSB = true>
 struct USI_SPI_T {
-	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
+	static constexpr uint8_t idle_mode(void) { return CLOCK::idle_mode; }
 
 	static int tx_count;
 	static int rx_count;
@@ -44,7 +44,7 @@ struct USI_SPI_T {
 		tx_count = 0;
 		rx_buffer = 0;
 		do {
-			enter_idle(idle_mode);
+			enter_idle(idle_mode());
 		} while (USICTL1 & USIIFG);
 		return USISRL;
 	}
@@ -57,7 +57,7 @@ struct USI_SPI_T {
 		rx_count = 0;
 		USISRL = *tx_data;
 		USICNT = DATA_LENGTH;
-		enter_idle(idle_mode);
+		enter_idle(idle_mode());
 	}
 
 	static bool handle_irq(void) {

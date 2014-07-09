@@ -14,7 +14,7 @@ template<typename CLOCK,
 	const int DATA_LENGTH = 8,
 	const bool MSB = true>
 struct SOFT_SPI_T {
-	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
+	static constexpr uint8_t idle_mode(void) { return CLOCK::idle_mode };
 
 	static int tx_count;
 	static int rx_count;

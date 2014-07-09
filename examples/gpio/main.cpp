@@ -23,7 +23,7 @@ typedef GPIO_OUTPUT_T<2, 0, HIGH> P2_0;
 typedef GPIO_OUTPUT_T<2, 1, LOW> P2_1;
 typedef GPIO_OUTPUT_T<2, 2, HIGH> P2_2;
 struct PORT1: public GPIO_PORT_T<1, LED_RED, LED_GREEN, P1_1, P1_2, P1_4, P1_5, BUTTON> {
-	static constexpr unsigned char idle_mode = LPM4_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM4_bits; }
 };
 typedef GPIO_PORT_T<2, P2_0, P2_1, P2_2> PORT2;
 

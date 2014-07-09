@@ -17,7 +17,7 @@ template<const USCI_MODULE MODULE,
 struct USCI_UART_T {
 	typedef USCI_T<MODULE, INSTANCE> USCI;
 
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 	static USCI_UART_STATUS status;
 	static volatile int tx_count;
 	static volatile int rx_count;

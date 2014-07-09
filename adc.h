@@ -4,7 +4,7 @@
 #include <clocks.h>
 
 struct ADC10OSC {
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 };
 
 template<typename CLOCK,
@@ -12,7 +12,7 @@ template<typename CLOCK,
 	const unsigned int CTL1,
 	const unsigned int ANALOG_INPUT_ENABLE = 0>
 struct ADC10_T {
-	static constexpr unsigned int idle_mode = CLOCK::idle_mode;
+	static constexpr uint8_t idle_mode { return CLOCK::idle_mode };
 
 	static void init(void) {
 		ADC10CTL0 = CTL0;

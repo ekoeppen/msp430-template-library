@@ -23,7 +23,7 @@ struct USCI_SPI_T {
 	static constexpr volatile unsigned char *RXBUF = USCI_REGISTER(MODULE, INSTANCE, 6);
 	static constexpr volatile unsigned char *TXBUF = USCI_REGISTER(MODULE, INSTANCE, 7);
 
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static int tx_count;
 	static int rx_count;

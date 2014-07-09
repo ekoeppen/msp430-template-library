@@ -24,7 +24,7 @@ template<typename CLOCK_SOURCE,
 	const WDT_MODE MODE = WDT_WATCHDOG,
 	const WDT_INTERVAL INTERVAL = WDT_INTERVAL_32768>
 struct WDT_T {
-	static constexpr unsigned char idle_mode = LPM3_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
 	static constexpr int frequency = CLOCK_SOURCE::frequency /
 		(INTERVAL == WDT_INTERVAL_32768 ? 32768 :
 		(INTERVAL == WDT_INTERVAL_8192 ? 8192 :

@@ -19,15 +19,19 @@ enum CLK_SOURCE {
 };
 
 struct DEFAULT_IDLER {
-	static constexpr unsigned char idle_mode = LPM4_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM4_bits; }
 };
 
 template<typename PERIPH0 = DEFAULT_IDLER,
 	typename PERIPH1 = DEFAULT_IDLER,
 	typename PERIPH2 = DEFAULT_IDLER,
 	typename PERIPH3 = DEFAULT_IDLER>
-inline void enter_idle(const unsigned char idle_mode = LPM4_bits) {
-	__bis_SR_register((idle_mode & PERIPH0::idle_mode & PERIPH1::idle_mode & PERIPH2::idle_mode & PERIPH3::idle_mode) + GIE);
+inline void enter_idle(const uint8_t idle_mode = LPM4_bits) {
+	__bis_SR_register((idle_mode &
+				PERIPH0::idle_mode() &
+				PERIPH1::idle_mode() &
+				PERIPH2::idle_mode() &
+				PERIPH3::idle_mode()) + GIE);
 }
 
 inline void exit_idle(void) {
@@ -40,7 +44,7 @@ template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_VLOCLK,
 struct ACLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_ACLK;
 	static constexpr long frequency = (FREQUENCY == 0 ? (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768) : FREQUENCY);
-	static constexpr unsigned char idle_mode = LPM3_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
 
 	static void init(void) {
 		if (SOURCE == ACLK_SOURCE_VLOCLK) BCSCTL3 |= LFXT1S_2;
@@ -52,7 +56,7 @@ template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
 struct SMCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_SMCLK;
 	static constexpr long frequency = FREQUENCY;
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static void init(void) {
 		if (SOURCE == CLK_SOURCE_DCOCLK) {
@@ -89,7 +93,7 @@ template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
 struct MCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_MCLK;
 	static constexpr long frequency = FREQUENCY;
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static void init(void) {
 		switch (frequency) {
@@ -119,7 +123,7 @@ struct MCLK_T {
 template<typename CLOCK>
 struct TIMEOUT_T {
 	static volatile unsigned long timeout;
-	static constexpr unsigned char idle_mode = CLOCK::idle_mode;
+	static constexpr uint8_t idle_mode(void) { return CLOCK::idle_mode; }
 
 	static void set(const unsigned long milliseconds) {
 		__bic_SR_register(GIE);
@@ -141,7 +145,7 @@ struct TIMEOUT_T {
 };
 
 struct TIMEOUT_NEVER {
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static void set(const unsigned long milliseconds) { }
 	static inline bool count_down(void) { return false; }
@@ -150,7 +154,7 @@ struct TIMEOUT_NEVER {
 };
 
 struct TIMEOUT_IMMEDIATELY {
-	static constexpr unsigned char idle_mode = LPM0_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static void set(const unsigned long milliseconds) { }
 	static inline bool count_down(void) { return true; }

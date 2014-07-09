@@ -53,7 +53,7 @@ struct TIMER_T {
 	static constexpr volatile unsigned int *CCTL6 = (unsigned int *) timer_regs[MODULE][INSTANCE][8];
 	static constexpr volatile unsigned int *IV = (unsigned int *) timer_regs[MODULE][INSTANCE][9];
 
-	static constexpr unsigned char idle_mode = CLOCK_SOURCE::idle_mode;
+	static constexpr uint8_t idle_mode(void) { return CLOCK_SOURCE::idle_mode };
 	static constexpr unsigned long frequency = CLOCK_SOURCE::frequency;
 
 	static void init(void) {

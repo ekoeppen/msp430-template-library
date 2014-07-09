@@ -1,6 +1,7 @@
 #ifndef __GPIO_H
 #define __GPIO_H
 
+#include <stdint.h>
 #include <msp430.h>
 
 enum DIRECTION {
@@ -226,7 +227,7 @@ struct GPIO_PORT_T {
 	static constexpr volatile unsigned char *PxSEL2 = (unsigned char *) ports[PORT][7];
 	static constexpr volatile unsigned char *PxREN = (unsigned char *) ports[PORT][8];
 
-	static constexpr unsigned char idle_mode = LPM3_bits;
+	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
 
 	static void init(void) {
 		unsigned char reg;
