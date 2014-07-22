@@ -14,7 +14,6 @@ template<typename TIMER,
 	typename RX,
 	const long SPEED = 9600>
 struct SOFT_UART_T {
-	static constexpr uint8_t idle_mode(void) { return TIMER::idle_mode };
 	static constexpr unsigned int bit_time = TIMER::frequency / SPEED;
 
 	static SOFT_UART_STATUS status;
@@ -32,6 +31,7 @@ struct SOFT_UART_T {
 	static void transfer(uint8_t *tx_data, int count) {
 	}
 
+	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void putc(char data) {
 		unsigned st;
 
@@ -50,6 +50,7 @@ struct SOFT_UART_T {
 		while (TIMER::counter() - st < bit_time);
 	}
 
+	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void puts(const char *data) {
 		while (*data) {
 			putc(*data++);

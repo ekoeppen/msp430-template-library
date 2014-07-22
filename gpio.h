@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <msp430.h>
+#include <tasks.h>
 
 enum DIRECTION {
 	INPUT = 0,
@@ -153,6 +154,10 @@ struct GPIO_PIN_T {
 		*PxIFG &= ~bit_value;
 	}
 
+	static void wait_for_irq(void) {
+		enter_idle();
+	}
+
 	static void set_output(void) {
 		*PxDIR |= bit_value;
 	}
@@ -232,10 +237,6 @@ struct GPIO_PORT_T {
 	static void init(void) {
 		unsigned char reg;
 
-		*PxOUT =
-			PIN0::initial_level | PIN1::initial_level | PIN2::initial_level | PIN3::initial_level |
-			PIN4::initial_level | PIN5::initial_level | PIN6::initial_level | PIN7::initial_level;
-
 		reg =
 			PIN0::direction | PIN1::direction | PIN2::direction | PIN3::direction |
 			PIN4::direction | PIN5::direction | PIN6::direction | PIN7::direction;
@@ -260,6 +261,10 @@ struct GPIO_PORT_T {
 			PIN0::resistor_enable | PIN1::resistor_enable | PIN2::resistor_enable | PIN3::resistor_enable |
 			PIN4::resistor_enable | PIN5::resistor_enable | PIN6::resistor_enable | PIN7::resistor_enable;
 		if (reg) *PxREN = reg;
+
+		*PxOUT =
+			PIN0::initial_level | PIN1::initial_level | PIN2::initial_level | PIN3::initial_level |
+			PIN4::initial_level | PIN5::initial_level | PIN6::initial_level | PIN7::initial_level;
 	}
 
 	static void clear_irq(void) {

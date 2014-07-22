@@ -10,8 +10,11 @@
 #include <soft_uart.h>
 #endif
 
-typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<CLK_SOURCE_DCOCLK, 1000000> SMCLK;
+typedef VLOCLK_T<> VLO;
+typedef DCOCLK_T<> DCO;
+typedef ACLK_T<VLO> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
@@ -41,7 +44,8 @@ int main(void)
 {
 	unsigned settings_value = 0x6633;
 
-	WDT::disable();
+	WDT::hold();
+	DCO::init();
 	ACLK::init();
 	SMCLK::init();
 	PORT1::init();

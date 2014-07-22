@@ -9,8 +9,11 @@
 #include <soft_uart.h>
 #endif
 
-typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<> SMCLK;
+typedef VLOCLK_T<> VLO;
+typedef DCOCLK_T<> DCO;
+typedef ACLK_T<VLO> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0> LED_RED;
 #ifdef __MSP430_HAS_USCI__
@@ -76,6 +79,7 @@ int main(void)
 	unsigned char buffer[6];
 	int r;
 
+	DCO::init();
 	ACLK::init();
 	SMCLK::init();
 	WDT::init();
@@ -89,8 +93,7 @@ int main(void)
 		r = read_dht<TIMER, DHT_PIN>(buffer);
 		printf<UART>("%d %d (%d)\n",
 		       ((buffer[1] << 8) + buffer[2]), ((buffer[3] << 8) + buffer[4]), r);
-		TIMEOUT::set(1000);
-		enter_idle<TIMEOUT>();
+		TIMEOUT::set_and_wait(1000);
 	}
 }
 

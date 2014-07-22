@@ -12,7 +12,7 @@ template<typename CLOCK,
 	const unsigned int CTL1,
 	const unsigned int ANALOG_INPUT_ENABLE = 0>
 struct ADC10_T {
-	static constexpr uint8_t idle_mode { return CLOCK::idle_mode };
+	static constexpr uint8_t idle_mode(void) { return CLOCK::idle_mode(); }
 
 	static void init(void) {
 		ADC10CTL0 = CTL0;
@@ -26,9 +26,9 @@ struct ADC10_T {
 	static unsigned int sample_once(void) {
 		ADC10CTL0 |= ENC + ADC10SC;
 		while (ADC10CTL1 & ADC10BUSY) {
-			enter_idle<CLOCK>();
+			enter_idle();
 		}
-		ADC10CTL &= ~ENC;
+		ADC10CTL0 &= ~ENC;
 		return ADC10MEM;
 	};
 

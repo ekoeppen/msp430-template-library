@@ -8,11 +8,6 @@ enum WDT_MODE {
 	WDT_WATCHDOG
 };
 
-enum WDT_SOURCE {
-	WDT_SMCLK,
-	WDT_ACLK,
-};
-
 enum WDT_INTERVAL {
 	WDT_INTERVAL_32768 = 0,
 	WDT_INTERVAL_8192 = 1,
@@ -20,12 +15,12 @@ enum WDT_INTERVAL {
 	WDT_INTERVAL_64 = 3
 };
 
-template<typename CLOCK_SOURCE,
+template<typename CLOCK,
 	const WDT_MODE MODE = WDT_WATCHDOG,
 	const WDT_INTERVAL INTERVAL = WDT_INTERVAL_32768>
 struct WDT_T {
 	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
-	static constexpr int frequency = CLOCK_SOURCE::frequency /
+	static constexpr int frequency = CLOCK::frequency /
 		(INTERVAL == WDT_INTERVAL_32768 ? 32768 :
 		(INTERVAL == WDT_INTERVAL_8192 ? 8192 :
 		(INTERVAL == WDT_INTERVAL_512 ? 512 : 64)));
@@ -34,8 +29,9 @@ struct WDT_T {
 		static_assert(frequency > 0, "WDT frequency can't be zero");
 		WDTCTL = WDTPW + WDTCNTCL +
 			(MODE == WDT_TIMER ? WDTTMSEL : 0) +
-			(CLOCK_SOURCE::type == CLOCK_TYPE_ACLK ? WDTSSEL : 0) +
+			(CLOCK::type == CLOCK_TYPE_ACLK ? WDTSSEL : 0) +
 			INTERVAL;
+		CLOCK::claim();
 	};
 
 	static void enable_irq(void) {
@@ -52,14 +48,20 @@ struct WDT_T {
 
 	static void enable(void) {
 		WDTCTL = WDTPW + (WDTCTL & (0x00ff & ~WDTHOLD)) + WDTPW;
+		CLOCK::claim();
 	};
+
+	static void hold(void) {
+		WDTCTL = WDTPW + WDTHOLD;
+	}
 
 	static bool enabled(void) {
 		return !(WDTCTL & WDTHOLD);
 	}
 
 	static void disable(void) {
-		WDTCTL = WDTPW + WDTHOLD;
+		hold();
+		CLOCK::release();
 	}
 };
 

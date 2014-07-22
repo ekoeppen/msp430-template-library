@@ -1,4 +1,4 @@
-#define USE_SOFT_SPI
+//#define USE_SOFT_SPI
 #define SENDING
 
 #include <gpio.h>
@@ -27,10 +27,13 @@ extern constexpr uint8_t rx_addr[5] = {
 
 const uint8_t BROADCAST_ADDR[] = {0x00, 0xf0, 0xf0, 0xf0, 0xf0};
 
-typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<CLK_SOURCE_DCOCLK, 12000000> SMCLK;
+typedef VLOCLK_T<> VLO;
+typedef DCOCLK_T<1000000> DCO;
+typedef ACLK_T<VLO> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
-typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
+typedef GPIO_OUTPUT_T<1, 0, HIGH> LED_RED;
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
 typedef GPIO_MODULE_T<1, 2, 3> TX;
@@ -46,12 +49,12 @@ typedef SOFT_UART_T<TIMER, TX, RX> UART;
 typedef GPIO_OUTPUT_T<1, 5> SCLK;
 typedef GPIO_INPUT_T<1, 6> MISO;
 typedef GPIO_OUTPUT_T<1, 7> MOSI;
-typedef SOFT_SPI_T<SMCLK, SCLK, MOSI, MISO, true, 0> SPI;
+typedef SOFT_SPI_T<SCLK, MOSI, MISO, true, 0> SPI;
 #elif defined(__MSP430_HAS_USCI__)
 typedef GPIO_MODULE_T<1, 5, 3> SCLK;
 typedef GPIO_MODULE_T<1, 6, 3> MISO;
 typedef GPIO_MODULE_T<1, 7, 3> MOSI;
-typedef USCI_SPI_T<USCI_B, 0, SMCLK> SPI;
+typedef USCI_SPI_T<USCI_B, 0, SMCLK, true, 0> SPI;
 #else
 typedef GPIO_PIN_T<1, 5, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> SCLK;
 typedef GPIO_PIN_T<1, 6, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MOSI;
@@ -63,9 +66,9 @@ typedef GPIO_OUTPUT_T<2, 1, HIGH> CSN;
 typedef GPIO_INPUT_T<2, 2> IRQ;
 
 typedef GPIO_PORT_T<1, LED_RED, SCLK, MISO, MOSI, RX, TX> PORT1;
-typedef GPIO_PORT_T<2, SCLK, CSN, CE> PORT2;
+typedef GPIO_PORT_T<2, IRQ, CSN, CE> PORT2;
 
-typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
+typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
@@ -76,15 +79,15 @@ int main(void)
 	uint8_t regs[64];
 	uint8_t packet[24];
 
+	DCO::init();
 	ACLK::init();
 	SMCLK::init();
+	MCLK::init();
 	WDT::init();
 	WDT::enable_irq();
 
 	PORT1::init();
 	PORT2::init();
-	LED_RED::set_low();
-
 #ifndef __MSP430_HAS_USCI__
 	TIMER::init();
 #endif
@@ -100,13 +103,20 @@ int main(void)
 	NRF24::set_channel(70);
 	NRF24::read_regs(regs);
 	hex_dump_bytes<UART>(regs, sizeof(regs));
+	LED_RED::set_low();
 #if (defined SENDING)
+	int n = 0;
 	while (1) {
 		NRF24::start_tx();
 		NRF24::tx_buffer(BROADCAST_ADDR, packet, sizeof(packet), false);
 		LED_RED::toggle();
-		TIMEOUT::set(1000);
-		enter_idle<WDT>();
+		TIMEOUT::set_and_wait(500);
+		if (n++ == 10) {
+			NRF24::read_regs(regs);
+			UART::puts("------------------\n");
+			hex_dump_bytes<UART>(regs, sizeof(regs));
+			n = 0;
+		}
 	}
 #elif (defined SCANNING)
 	NRF24::start_rx();
@@ -119,8 +129,7 @@ int main(void)
 				if (NRF24::rw_reg(RF24_RPD, RF24_NOP)) {
 					UART::putc('*');
 				}
-				TIMEOUT::set(100);
-				enter_idle<WDT>();
+				TIMEOUT::set_and_wait(1000);
 			}
 			UART::putc('\n');
 		}
@@ -144,16 +153,36 @@ void watchdog_irq(void)
 
 #ifndef USE_SOFT_SPI
 #ifdef __MSP430_HAS_USCI__
-void usci_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
-void usci_irq(void)
+void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
+void usci_tx_irq(void)
 {
-	if (SPI::handle_irq()) exit_idle();
+	if (SPI::handle_irq() || UART::handle_tx_irq()) exit_idle();
+}
+
+void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
+void usci_rx_irq(void)
+{
+	if (SPI::handle_irq() || UART::handle_rx_irq()) exit_idle();
 }
 #else
 void usi_irq(void) __attribute__((interrupt(USI_VECTOR)));
 void usi_irq(void)
 {
 	if (SPI::handle_irq()) exit_idle();
+}
+#endif
+#else
+#ifdef __MSP430_HAS_USCI__
+void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
+void usci_tx_irq(void)
+{
+	if (UART::handle_tx_irq()) exit_idle();
+}
+
+void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
+void usci_rx_irq(void)
+{
+	if (UART::handle_rx_irq()) exit_idle();
 }
 #endif
 #endif

@@ -2,17 +2,18 @@
 #define __PRINTF_H
 
 #include <stdarg.h>
+#include <tasks.h>
 
 extern "C" char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, int zero_pad);
 
-template <typename OUTPUT>
+template<typename OUTPUT, typename TIMEOUT = TIMEOUT_NEVER>
 void vprintf(const char *fmt, va_list va)
 {
 	char ch;
 
 	while ((ch = *fmt++) != 0) {
 		if (ch != '%') {
-			OUTPUT::putc(ch);
+			OUTPUT::template putc<TIMEOUT>(ch);
 		} else {
 			char zero_pad = 0;
 
@@ -31,18 +32,18 @@ void vprintf(const char *fmt, va_list va)
 				case 'd':
 				case 'x':
 				case 'X':
-					OUTPUT::puts(itoa_ext(va_arg(va, unsigned int),
+					OUTPUT::template puts<TIMEOUT>(itoa_ext(va_arg(va, unsigned int),
 								ch == 'u' || ch == 'd' ? 10 : 16,
 								ch == 'X', zero_pad));
 					break;
 				case 'c' :
-					OUTPUT::putc((char)(va_arg(va, int)));
+					OUTPUT::template putc<TIMEOUT>((char)(va_arg(va, int)));
 					break;
 				case 's' :
-					OUTPUT::puts(va_arg(va, char*));
+					OUTPUT::template puts<TIMEOUT>(va_arg(va, char*));
 					break;
 				default:
-					OUTPUT::putc(ch);
+					OUTPUT::template putc<TIMEOUT>(ch);
 					break;
 			}
 		}
@@ -50,21 +51,21 @@ void vprintf(const char *fmt, va_list va)
 }
 
 
-template <typename OUTPUT>
+template<typename OUTPUT, typename TIMEOUT = TIMEOUT_NEVER>
 void printf(const char *fmt, ...)
 {
 	va_list va;
 
 	va_start(va, fmt);
-	vprintf<OUTPUT>(fmt, va);
+	vprintf<OUTPUT, TIMEOUT>(fmt, va);
 	va_end(va);
 }
 
-template <typename INPUT>
+template<typename INPUT, typename TIMEOUT = TIMEOUT_NEVER>
 void gets(char *buffer, int count)
 {
 	while (count > 0) {
-		*buffer = INPUT::getc();
+		*buffer = INPUT::template getc<TIMEOUT>();
 		buffer++;
 		count--;
 	}

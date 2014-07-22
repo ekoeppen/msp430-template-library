@@ -9,11 +9,15 @@
 #include <soft_uart.h>
 #endif
 
-typedef ACLK_T<ACLK_SOURCE_LFXT1CLK> ACLK;
-typedef SMCLK_T<> SMCLK;
+typedef LFXT1CLK_T<> LFXT1;
+typedef DCOCLK_T<> DCO;
+typedef ACLK_T<LFXT1> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
 typedef GPIO_OUTPUT_T<1, 6, LOW> LED_GREEN;
+typedef GPIO_MODULE_T<1, 4, 1> SMCLK_OUT;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
 #ifdef __MSP430_HAS_USCI__
@@ -27,25 +31,32 @@ typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
 typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
 
-typedef GPIO_PORT_T<1, LED_RED, LED_GREEN, RX, TX> PORT1;
+typedef GPIO_PORT_T<1, LED_RED, LED_GREEN, RX, TX, SMCLK_OUT> PORT1;
+
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
 int main(void)
 {
-	ACLK::init();
+	DCO::init();
+
+	MCLK::init();
 	SMCLK::init();
+	ACLK::init();
+
 	WDT::init();
 	PORT1::init();
+
 	WDT::enable_irq();
 #ifndef __MSP430_HAS_USCI__
 	TIMER::init();
 #endif
 	UART::init();
-	printf<UART>("WDT example start\n");
+	UART::puts("WDT example start\n");
 	while (1) {
 		LED_RED::toggle();
-		TIMEOUT::set(60000 * 30);
-		enter_idle<WDT>();
+		UART::disable();
+		TIMEOUT::set_and_wait(1000);
+		UART::enable();
 		printf<UART>("Timeout\n");
 	}
 }
@@ -56,3 +67,13 @@ void watchdog_irq(void)
 	LED_GREEN::toggle();
 	if (TIMEOUT::count_down()) exit_idle();
 }
+
+#ifdef __MSP430_HAS_USCI__
+void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
+void usci_tx_irq(void)
+{
+	if (UART::handle_tx_irq()) {
+		exit_idle();
+	}
+}
+#endif

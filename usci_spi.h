@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <clocks.h>
+#include <tasks.h>
 #include <usci.h>
 
 template<const USCI_MODULE MODULE,
@@ -60,7 +61,7 @@ struct USCI_SPI_T {
 		tx_count = 0;
 		rx_buffer = 0;
 		do {
-			enter_idle(idle_mode);
+			enter_idle();
 		} while (*STAT & UCBUSY);
 		return *RXBUF;
 	}
@@ -72,7 +73,7 @@ struct USCI_SPI_T {
 		rx_buffer = rx_data;
 		rx_count = 0;
 		*TXBUF = *tx_data;
-		enter_idle(idle_mode);
+		enter_idle();
 	}
 
 	static bool handle_irq(void) {

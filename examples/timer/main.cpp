@@ -4,8 +4,11 @@
 #include <io.h>
 #include <timer.h>
 
-typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<> SMCLK;
+typedef VLOCLK_T<> VLO;
+typedef DCOCLK_T<> DCO;
+typedef ACLK_T<VLO> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0> LED_RED;
 typedef GPIO_OUTPUT_T<1, 6> LED_GREEN;
@@ -17,6 +20,7 @@ typedef TIMEOUT_T<WDT> TIMEOUT;
 
 int main(void)
 {
+	DCO::init();
 	ACLK::init();
 	SMCLK::init();
 	WDT::init();
@@ -31,8 +35,7 @@ int main(void)
 			while (TIMER::counter() < end) ;
 		}
 		LED_GREEN::set_low();
-		TIMEOUT::set(1000);
-		enter_idle<TIMEOUT>();
+		TIMEOUT::set_and_wait(1000);
 	}
 }
 

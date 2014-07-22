@@ -1,4 +1,4 @@
-#define USE_SOFT_SPI
+//#define USE_SOFT_SPI
 
 #include <gpio.h>
 #include <clocks.h>
@@ -12,15 +12,18 @@
 #include <usi_spi.h>
 #endif
 
-typedef ACLK_T<ACLK_SOURCE_LFXT1CLK> ACLK;
-typedef SMCLK_T<CLK_SOURCE_DCOCLK, 1000000> SMCLK;
+typedef VLOCLK_T<> VLO;
+typedef DCOCLK_T<1000000> DCO;
+typedef ACLK_T<VLO> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
-typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_64> WDT;
+typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 #if defined(USE_SOFT_SPI)
 typedef GPIO_OUTPUT_T<1, 5> SCLK;
 typedef GPIO_INPUT_T<1, 6> MISO;
 typedef GPIO_OUTPUT_T<1, 7> MOSI;
-typedef SOFT_SPI_T<SMCLK, SCLK, MOSI, MISO, true, 0> SPI;
+typedef SOFT_SPI_T<SCLK, MOSI, MISO, true, 0> SPI;
 #elif defined(__MSP430_HAS_USCI__)
 typedef USCI_SPI_T<USCI_B, 0, SMCLK> SPI;
 typedef GPIO_MODULE_T<1, 5, 3> SCLK;
@@ -41,6 +44,7 @@ typedef TIMEOUT_T<WDT> TIMEOUT;
 
 int main(void)
 {
+	DCO::init();
 	ACLK::init();
 	SMCLK::init();
 	WDT::init();
@@ -53,8 +57,7 @@ int main(void)
 		SPI::transfer((uint8_t *) "abcd", 4);
 		CS::set_high();
 
-		TIMEOUT::set(500);
-		enter_idle<WDT>();
+		TIMEOUT::set_and_wait(500);
 	}
 }
 

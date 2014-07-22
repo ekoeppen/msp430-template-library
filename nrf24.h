@@ -72,6 +72,7 @@
 #define RF24_RF_DR       BIT3
 #define RF24_RF_DR_LOW   BIT5
 #define RF24_RF_DR_HIGH  BIT3
+#define RF24_RF_0DBM     (BIT2 + BIT1)
 #define RF24_RF_PWR      BIT1
 #define RF24_LNA_HCURR   BIT0
 #define RF24_RX_DR       BIT6
@@ -115,7 +116,8 @@ static constexpr uint8_t nrf24_init_values[][2] = {
 	{RF24_W_REGISTER + RF24_RX_PW_P2, 0},
 	{RF24_W_REGISTER + RF24_RX_PW_P3, 0},
 	{RF24_W_REGISTER + RF24_RX_PW_P4, 0},
-	{RF24_W_REGISTER + RF24_RF_SETUP, RF24_RF_DR_LOW},
+	{RF24_W_REGISTER + RF24_RX_PW_P5, 0},
+	{RF24_W_REGISTER + RF24_RF_SETUP, RF24_RF_DR_LOW + RF24_RF_0DBM},
 	{RF24_W_REGISTER + RF24_DYNPD, RF24_DPL_P0 + RF24_DPL_P1 + RF24_DPL_P2 + RF24_DPL_P3 + RF24_DPL_P4},
 	{RF24_W_REGISTER + RF24_FEATURE, RF24_EN_DPL + RF24_EN_ACK_PAY + RF24_EN_DYN_ACK},
 	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC}
@@ -141,11 +143,13 @@ struct NRF24_T {
 			uint8_t pipe_enable = RF24_ERX_P0 + RF24_ERX_P1,
 			const int8_t rx_addr2 = 0,
 			const int8_t rx_addr3 = 0,
-			const int8_t rx_addr4 = 0) {
+			const int8_t rx_addr4 = 0,
+			const int8_t rx_addr5 = 0) {
 		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P1, rx_addr, RF24_ADDR_WIDTH);
 		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P2, rx_addr2);
 		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P3, rx_addr3);
 		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P4, rx_addr4);
+		rw_reg(RF24_W_REGISTER + RF24_RX_ADDR_P5, rx_addr5);
 		rw_reg(RF24_W_REGISTER + RF24_EN_RXADDR, pipe_enable);
 	}
 
@@ -156,8 +160,7 @@ struct NRF24_T {
 		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(auto_ack ? RF24_W_TX_PAYLOAD : RF24_W_TX_PAYLOAD_NOACK, data, len);
 		CE::set_high();
-		TIMEOUT::set(10);
-		enter_idle<TIMEOUT>();
+		TIMEOUT::set_and_wait(50);
 		CE::set_low();
 		while (IRQ::is_high());
 		rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_TX_DS | RF24_MAX_RT);
@@ -167,8 +170,7 @@ struct NRF24_T {
 		int n = 0;
 
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		TIMEOUT::set(10);
-		enter_idle<TIMEOUT>();
+		TIMEOUT::set_and_wait(10);
 		CE::set_high();
 		TIMEOUT::set(timeout);
 		do {
@@ -198,8 +200,7 @@ struct NRF24_T {
 
 	static void start_rx(void) {
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		TIMEOUT::set(10);
-		enter_idle<TIMEOUT>();
+		TIMEOUT::set_and_wait(10);
 		CE::set_high();
 	}
 
@@ -210,27 +211,20 @@ struct NRF24_T {
 
 	static uint8_t rw_reg(uint8_t reg, uint8_t value)
 	{
-		uint8_t r;
+		static uint8_t buffer[2];
 
+		buffer[0] = reg; buffer[1] = value;
 		CSN::set_low();
-		SPI::transfer(reg);
-		r = SPI::transfer(value);
+		SPI::transfer(buffer, 2, buffer);
 		CSN::set_high();
-		return r;
+		return buffer[1];
 	}
 
 	static void spi_transfer_buffer(uint8_t reg, int dir, uint8_t *data, int len)
 	{
 		CSN::set_low();
 		SPI::transfer(reg);
-		while (len-- > 0) {
-			if (dir) {
-				SPI::transfer(*data);
-			} else {
-				*data = SPI::transfer(RF24_NOP);
-			}
-			data++;
-		}
+		SPI::transfer(data, len, dir ? 0 : data);
 		CSN::set_high();
 	}
 

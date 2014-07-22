@@ -31,7 +31,7 @@ static constexpr unsigned int timer_regs[][3][10] = {
 
 template<const TIMER_MODULE MODULE,
 	const unsigned char INSTANCE,
-	typename CLOCK_SOURCE,
+	typename CLOCK,
 	const unsigned int CTL_INIT,
 	const unsigned int IV_INIT = 0,
 	const unsigned int CCTL0_INIT = 0,
@@ -53,8 +53,7 @@ struct TIMER_T {
 	static constexpr volatile unsigned int *CCTL6 = (unsigned int *) timer_regs[MODULE][INSTANCE][8];
 	static constexpr volatile unsigned int *IV = (unsigned int *) timer_regs[MODULE][INSTANCE][9];
 
-	static constexpr uint8_t idle_mode(void) { return CLOCK_SOURCE::idle_mode };
-	static constexpr unsigned long frequency = CLOCK_SOURCE::frequency;
+	static constexpr unsigned long frequency = CLOCK::frequency;
 
 	static void init(void) {
 		static_assert(CCTL0_INIT == 0 || CCTL0 != 0, "Timer CCTL0 register does not exist");
@@ -73,6 +72,16 @@ struct TIMER_T {
 		if (CCTL4_INIT) *CCTL4 = CCTL4_INIT;
 		if (CCTL5_INIT) *CCTL5 = CCTL5_INIT;
 		if (CCTL6_INIT) *CCTL6 = CCTL6_INIT;
+	};
+
+	static void enable(void) {
+		if (CTL_INIT & MC_3) CLOCK::claim();
+		*CTL = CTL_INIT;
+	};
+
+	static void disable(void) {
+		*CTL &= ~MC_3;
+		CLOCK::release();
 	};
 
 	static unsigned int counter(void) {

@@ -1,5 +1,6 @@
 #include <gpio.h>
 #include <clocks.h>
+#include <tasks.h>
 #include <wdt.h>
 #ifdef __MSP430_HAS_USCI__
 #include <usci_uart.h>
@@ -10,8 +11,11 @@
 #include <io.h>
 #include <adc.h>
 
-typedef ACLK_T<ACLK_SOURCE_VLOCLK> ACLK;
-typedef SMCLK_T<> SMCLK;
+typedef VLOCLK_T<> VLO;
+typedef DCOCLK_T<> DCO;
+typedef ACLK_T<VLO> ACLK;
+typedef MCLK_T<DCO> MCLK;
+typedef SMCLK_T<DCO> SMCLK;
 
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
@@ -90,8 +94,11 @@ int main(void)
 {
 	unsigned int vcc_milli, adc, adc_ref, adc_norm, r;
 
-	ACLK::init();
+	DCO::init();
+
 	SMCLK::init();
+	ACLK::init();
+	MCLK::init();
 	WDT::init();
 	PORT1::init();
 	UART::init();
@@ -108,7 +115,7 @@ int main(void)
 			     adc, adc_ref, adc_norm, r, vcc_milli);
 		ADC_CHANNEL_3::disable();
 		TIMEOUT::set(200);
-		enter_idle<TIMEOUT>();
+		enter_idle();
 	}
 }
 

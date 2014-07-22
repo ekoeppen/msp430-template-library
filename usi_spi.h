@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <clocks.h>
+#include <tasks.h>
 
 template<typename CLOCK,
 	const bool MASTER = true,
@@ -11,8 +12,6 @@ template<typename CLOCK,
 	const int DATA_LENGTH = 8,
 	const bool MSB = true>
 struct USI_SPI_T {
-	static constexpr uint8_t idle_mode(void) { return CLOCK::idle_mode; }
-
 	static int tx_count;
 	static int rx_count;
 	static uint8_t *rx_buffer;
@@ -25,9 +24,12 @@ struct USI_SPI_T {
 		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
 		USICNT = 8;
 		USISRL = 0;
+		enable_irq();
+		CLOCK::claim();
 	}
 
 	static void disable(void) {
+		CLOCK::release();
 	}
 
 	static int ready(void) {
@@ -37,43 +39,43 @@ struct USI_SPI_T {
 		USICTL1 |= USIIE;
 	}
 
+	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static uint8_t transfer(uint8_t data) {
-		enable_irq();
 		USISRL = data;
 		USICNT = DATA_LENGTH;
-		tx_count = 0;
+		tx_count = 1;
 		rx_buffer = 0;
-		do {
-			enter_idle(idle_mode());
-		} while (USICTL1 & USIIFG);
+		while (!TIMEOUT::triggered() && tx_count > 0) {
+			enter_idle();
+		}
 		return USISRL;
 	}
 
+	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(uint8_t *tx_data, int count, uint8_t *rx_data = 0) {
-		enable_irq();
 		tx_buffer = tx_data + 1;
-		tx_count = count - 1;
+		tx_count = count;
 		rx_buffer = rx_data;
 		rx_count = 0;
 		USISRL = *tx_data;
 		USICNT = DATA_LENGTH;
-		enter_idle(idle_mode());
+		while (!TIMEOUT::triggered() && tx_count > 0) {
+			enter_idle();
+		}
 	}
 
 	static bool handle_irq(void) {
 		bool resume = false;
 
 		if (USICTL1 & USIIFG) {
+			tx_count--;
 			if (tx_count > 0) {
 				if (rx_buffer) {
-					*rx_buffer = USISRL;
-					rx_buffer++;
+					*rx_buffer++ = USISRL;
 					rx_count++;
 				}
-				USISRL = *tx_buffer;
+				USISRL = *tx_buffer++;
 				USICNT = DATA_LENGTH;
-				tx_buffer++;
-				tx_count--;
 			} else {
 				clear_irq();
 				resume = true;

@@ -7,162 +7,121 @@ enum CLOCK_TYPE {
 	CLOCK_TYPE_SMCLK
 };
 
-enum ACLK_SOURCE {
-	ACLK_SOURCE_VLOCLK,
-	ACLK_SOURCE_LFXT1CLK
+enum CLOCK_SOURCE_TYPE {
+	CLOCK_SOURCE_TYPE_VLO,
+	CLOCK_SOURCE_TYPE_LFXT1,
+	CLOCK_SOURCE_TYPE_DCO
 };
 
-enum CLK_SOURCE {
-	CLK_SOURCE_VLOCLK,
-	CLK_SOURCE_LFXT1CLK,
-	CLK_SOURCE_DCOCLK
+uint8_t VLOCLK_usage_count;
+uint8_t LFXT1CLK_usage_count;
+uint8_t DCOCLK_usage_count;
+
+template<const uint16_t FREQUENCY = 12000>
+struct VLOCLK_T {
+	static constexpr CLOCK_SOURCE_TYPE type = CLOCK_SOURCE_TYPE_VLO;
+	static constexpr uint16_t frequency = FREQUENCY;
+	static void claim(void) { VLOCLK_usage_count++; }
+	static void release(void) { VLOCLK_usage_count--; }
 };
 
-struct DEFAULT_IDLER {
-	static constexpr uint8_t idle_mode(void) { return LPM4_bits; }
+
+template<const uint16_t FREQUENCY = 32768>
+struct LFXT1CLK_T {
+	static constexpr CLOCK_SOURCE_TYPE type = CLOCK_SOURCE_TYPE_LFXT1;
+	static constexpr uint16_t frequency = FREQUENCY;
+	static void claim(void) { LFXT1CLK_usage_count++; }
+	static void release(void) { LFXT1CLK_usage_count--; }
 };
 
-template<typename PERIPH0 = DEFAULT_IDLER,
-	typename PERIPH1 = DEFAULT_IDLER,
-	typename PERIPH2 = DEFAULT_IDLER,
-	typename PERIPH3 = DEFAULT_IDLER>
-inline void enter_idle(const uint8_t idle_mode = LPM4_bits) {
-	__bis_SR_register((idle_mode &
-				PERIPH0::idle_mode() &
-				PERIPH1::idle_mode() &
-				PERIPH2::idle_mode() &
-				PERIPH3::idle_mode()) + GIE);
-}
 
-inline void exit_idle(void) {
-	__bic_SR_register_on_exit(LPM4_bits);
-}
+template<const uint32_t FREQUENCY = 1000000>
+struct DCOCLK_T {
+	static constexpr CLOCK_SOURCE_TYPE type = CLOCK_SOURCE_TYPE_DCO;
+	static constexpr uint32_t frequency = FREQUENCY;
+	static void init(void) {
+		switch (FREQUENCY) {
+			case 8000000:
+				BCSCTL1 = CALBC1_8MHZ;
+				DCOCTL = CALDCO_8MHZ;
+				break;
+			case 12000000:
+				BCSCTL1 = CALBC1_12MHZ;
+				DCOCTL = CALDCO_12MHZ;
+				break;
+			case 16000000:
+				BCSCTL1 = CALBC1_16MHZ;
+				DCOCTL = CALDCO_16MHZ;
+			case 1000000:
+				BCSCTL1 = CALBC1_1MHZ;
+				DCOCTL = CALDCO_1MHZ;
+				break;
+			default:
+				BCSCTL1 = CALBC1_1MHZ;
+				DCOCTL = CALDCO_1MHZ;
+				break;
+		}
+	}
+	static void claim(void) { DCOCLK_usage_count++; }
+	static void release(void) { DCOCLK_usage_count--; }
+};
 
-template<const ACLK_SOURCE SOURCE = ACLK_SOURCE_VLOCLK,
-	const int FREQUENCY = 0,
-	const int DIVIDER = 0>
+template<typename SOURCE,
+	const int DIVIDER = 1>
 struct ACLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_ACLK;
-	static constexpr long frequency = (FREQUENCY == 0 ? (SOURCE == ACLK_SOURCE_VLOCLK ? 12000 : 32768) : FREQUENCY);
+	static constexpr long frequency = SOURCE::frequency / DIVIDER;
 	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
 
 	static void init(void) {
-		if (SOURCE == ACLK_SOURCE_VLOCLK) BCSCTL3 |= LFXT1S_2;
+		if (SOURCE::type == CLOCK_SOURCE_TYPE_VLO) BCSCTL3 |= LFXT1S_2;
 	};
+
+	static void claim(void) { SOURCE::claim(); }
+	static void release(void) { SOURCE::release(); }
 };
 
-template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
-	const long FREQUENCY = 1000000>
+template<typename SOURCE,
+	const int DIVIDER = 1>
 struct SMCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_SMCLK;
-	static constexpr long frequency = FREQUENCY;
+	static constexpr long frequency = SOURCE::frequency / DIVIDER;
 	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static void init(void) {
-		if (SOURCE == CLK_SOURCE_DCOCLK) {
-			BCSCTL2 &= ~SELS;
-			switch (frequency) {
-			case 8000000:
-				BCSCTL1 = CALBC1_8MHZ;
-				DCOCTL = CALDCO_8MHZ;
-				break;
-			case 12000000:
-				BCSCTL1 = CALBC1_12MHZ;
-				DCOCTL = CALDCO_12MHZ;
-				break;
-			case 16000000:
-				BCSCTL1 = CALBC1_16MHZ;
-				DCOCTL = CALDCO_16MHZ;
-			case 1000000:
-				BCSCTL1 = CALBC1_1MHZ;
-				DCOCTL = CALDCO_1MHZ;
-				break;
-			default:
-				BCSCTL1 = CALBC1_1MHZ;
-				DCOCTL = CALDCO_1MHZ;
-				break;
-			}
-		} else {
+		if (DIVIDER > 1) {
+			BCSCTL2 &= DIVS_3;
+			BCSCTL2 |= (DIVIDER == 2 ? DIVS_1 : (DIVIDER == 4 ? DIVS_2 : DIVS_3));
+		}
+		if (SOURCE::type != CLOCK_SOURCE_TYPE_DCO) {
 			BCSCTL2 |= SELS;
 		}
 	};
+
+	static void claim(void) { SOURCE::claim(); }
+	static void release(void) { SOURCE::release(); }
 };
 
-template<const CLK_SOURCE SOURCE = CLK_SOURCE_DCOCLK,
-	const long FREQUENCY = 1000000>
+template<typename SOURCE,
+	const int DIVIDER = 1>
 struct MCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_MCLK;
-	static constexpr long frequency = FREQUENCY;
-	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
+	static constexpr long frequency = SOURCE::frequency / DIVIDER;
+	static constexpr uint8_t idle_mode(void) { return 0; }
 
 	static void init(void) {
-		switch (frequency) {
-			case 8000000:
-				BCSCTL1 = CALBC1_8MHZ;
-				DCOCTL = CALDCO_8MHZ;
+		switch (SOURCE::type) {
+			case CLOCK_SOURCE_TYPE_DCO:
 				break;
-			case 12000000:
-				BCSCTL1 = CALBC1_12MHZ;
-				DCOCTL = CALDCO_12MHZ;
-				break;
-			case 16000000:
-				BCSCTL1 = CALBC1_16MHZ;
-				DCOCTL = CALDCO_16MHZ;
-			case 1000000:
-				BCSCTL1 = CALBC1_1MHZ;
-				DCOCTL = CALDCO_1MHZ;
-				break;
-			default:
-				BCSCTL1 = CALBC1_1MHZ;
-				DCOCTL = CALDCO_1MHZ;
+			case CLOCK_SOURCE_TYPE_VLO:
+			case CLOCK_SOURCE_TYPE_LFXT1:
+				BCSCTL2 |= SELM_3;
 				break;
 		}
 	};
+
+	static void claim(void) { SOURCE::claim(); }
+	static void release(void) { SOURCE::release(); }
 };
-
-template<typename CLOCK>
-struct TIMEOUT_T {
-	static volatile unsigned long timeout;
-	static constexpr uint8_t idle_mode(void) { return CLOCK::idle_mode; }
-
-	static void set(const unsigned long milliseconds) {
-		__bic_SR_register(GIE);
-		timeout = milliseconds * CLOCK::frequency / 1000;
-		__bis_SR_register(GIE);
-	};
-
-	static inline bool count_down(void) {
-		return (!timeout || (--timeout == 0));
-	};
-
-	static inline bool triggered(void) {
-		return timeout == 0;
-	};
-
-	static inline unsigned long get() {
-		return timeout;
-	};
-};
-
-struct TIMEOUT_NEVER {
-	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
-
-	static void set(const unsigned long milliseconds) { }
-	static inline bool count_down(void) { return false; }
-	static inline bool triggered(void) { return false; }
-	static inline unsigned long get() { return 1; }
-};
-
-struct TIMEOUT_IMMEDIATELY {
-	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
-
-	static void set(const unsigned long milliseconds) { }
-	static inline bool count_down(void) { return true; }
-	static inline bool triggered(void) { return true; }
-	static inline unsigned long get() { return 0; }
-};
-
-template<typename CLOCK>
-volatile unsigned long TIMEOUT_T<CLOCK>::timeout;
 
 #endif
