@@ -21,10 +21,13 @@ struct TIMEOUT_T {
 		__bic_SR_register(GIE);
 		timeout = milliseconds * CLOCK::frequency / 1000;
 		__bis_SR_register(GIE);
+		CLOCK::claim();
 	};
 
 	static inline bool count_down(void) {
-		return (!timeout || (--timeout == 0));
+		bool triggered = (!timeout || (--timeout == 0));
+		if (triggered) CLOCK::release();
+		return triggered;
 	};
 
 	static inline bool triggered(void) {
