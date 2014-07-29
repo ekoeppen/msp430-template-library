@@ -45,23 +45,26 @@ enum PIN_FUNCTION {
 	USCI
 };
 
-static constexpr int ports[][9] = {
-	{0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{P1IN_, P1OUT_, P1DIR_, P1IFG_, P1IES_, P1IE_, P1SEL_, P1SEL2_, P1REN_},
+uint8_t P1IFGS;
+uint8_t P2IFGS;
+
+static constexpr uint16_t ports[][10] = {
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{P1IN_, P1OUT_, P1DIR_, P1IFG_, P1IES_, P1IE_, P1SEL_, P1SEL2_, P1REN_, (uint16_t) &P1IFGS},
 #ifdef P2IN_
-	{P2IN_, P2OUT_, P2DIR_, P2IFG_, P2IES_, P2IE_, P2SEL_, P2SEL2_, P2REN_},
+	{P2IN_, P2OUT_, P2DIR_, P2IFG_, P2IES_, P2IE_, P2SEL_, P2SEL2_, P2REN_, (uint16_t) &P2IFGS},
 #ifdef P3IN_
-	{P3IN_, P3OUT_, P3DIR_, 0, 0, 0, P3SEL_, P3SEL2_, P3REN_},
+	{P3IN_, P3OUT_, P3DIR_, 0, 0, 0, P3SEL_, P3SEL2_, P3REN_, 0},
 #ifdef P4IN_
-	{P4IN_, P4OUT_, P4DIR_, 0, 0, 0, P4SEL_, P4SEL2_, P4REN_},
+	{P4IN_, P4OUT_, P4DIR_, 0, 0, 0, P4SEL_, P4SEL2_, P4REN_, 0},
 #ifdef P5IN_
-	{P5IN_, P5OUT_, P5DIR_, 0, 0, 0, P5SEL_, P5SEL2_, P5REN_},
+	{P5IN_, P5OUT_, P5DIR_, 0, 0, 0, P5SEL_, P5SEL2_, P5REN_, 0},
 #ifdef P6IN_
-	{P6IN_, P6OUT_, P6DIR_, 0, 0, 0, P6SEL_, P6SEL2_, P6REN_},
+	{P6IN_, P6OUT_, P6DIR_, 0, 0, 0, P6SEL_, P6SEL2_, P6REN_, 0},
 #ifdef P7IN_
-	{P7IN_, P7OUT_, P7DIR_, 0, 0, 0, P7SEL_, P7SEL2_, P7REN_},
+	{P7IN_, P7OUT_, P7DIR_, 0, 0, 0, P7SEL_, P7SEL2_, P7REN_, 0},
 #ifdef P8IN_
-	{P8IN_, P8OUT_, P8DIR_, 0, 0, 0, P8SEL_, P8SEL2_, P8REN_}
+	{P8IN_, P8OUT_, P8DIR_, 0, 0, 0, P8SEL_, P8SEL2_, P8REN_, 0}
 #endif
 #endif
 #endif
@@ -79,25 +82,26 @@ template<const char PORT, const char PIN,
 	const char FUNCTION_SELECT = 0,
 	const RESISTOR_ENABLE RESISTOR = RESISTOR_DISABLED>
 struct GPIO_PIN_T {
-	static constexpr volatile unsigned char *PxIN = (unsigned char *) ports[PORT][0];
-	static constexpr volatile unsigned char *PxOUT = (unsigned char *) ports[PORT][1];
-	static constexpr volatile unsigned char *PxDIR = (unsigned char *) ports[PORT][2];
-	static constexpr volatile unsigned char *PxIFG = (unsigned char *) ports[PORT][3];
-	static constexpr volatile unsigned char *PxIES = (unsigned char *) ports[PORT][4];
-	static constexpr volatile unsigned char *PxIE = (unsigned char *) ports[PORT][5];
-	static constexpr volatile unsigned char *PxSEL = (unsigned char *) ports[PORT][6];
-	static constexpr volatile unsigned char *PxSEL2 = (unsigned char *) ports[PORT][7];
-	static constexpr volatile unsigned char *PxREN = (unsigned char *) ports[PORT][8];
+	static constexpr volatile uint8_t *PxIN = (uint8_t *) ports[PORT][0];
+	static constexpr volatile uint8_t *PxOUT = (uint8_t *) ports[PORT][1];
+	static constexpr volatile uint8_t *PxDIR = (uint8_t *) ports[PORT][2];
+	static constexpr volatile uint8_t *PxIFG = (uint8_t *) ports[PORT][3];
+	static constexpr volatile uint8_t *PxIES = (uint8_t *) ports[PORT][4];
+	static constexpr volatile uint8_t *PxIE = (uint8_t *) ports[PORT][5];
+	static constexpr volatile uint8_t *PxSEL = (uint8_t *) ports[PORT][6];
+	static constexpr volatile uint8_t *PxSEL2 = (uint8_t *) ports[PORT][7];
+	static constexpr volatile uint8_t *PxREN = (uint8_t *) ports[PORT][8];
+	static constexpr volatile uint8_t *PxIFGS = (uint8_t *) ports[PORT][9];
 
-	static constexpr unsigned char bit_value = 1 << PIN;
+	static constexpr uint8_t bit_value = 1 << PIN;
 
-	static constexpr unsigned char direction = (PIN_DIRECTION == OUTPUT ? bit_value : 0);
-	static constexpr unsigned char interrupt_enable = (INTERRUPT ? bit_value : 0);
-	static constexpr unsigned char interrupt_edge = (EDGE == TRIGGER_FALLING ? bit_value : 0);
-	static constexpr unsigned char function_select = (FUNCTION_SELECT & 0b01 ? bit_value : 0);
-	static constexpr unsigned char function_select2 = (FUNCTION_SELECT & 0b10 ? bit_value : 0);
-	static constexpr unsigned char resistor_enable = (RESISTOR ? bit_value : 0);
-	static constexpr unsigned char initial_level = (INITIAL_LEVEL ? bit_value : 0);
+	static constexpr uint8_t direction = (PIN_DIRECTION == OUTPUT ? bit_value : 0);
+	static constexpr uint8_t interrupt_enable = (INTERRUPT ? bit_value : 0);
+	static constexpr uint8_t interrupt_edge = (EDGE == TRIGGER_FALLING ? bit_value : 0);
+	static constexpr uint8_t function_select = (FUNCTION_SELECT & 0b01 ? bit_value : 0);
+	static constexpr uint8_t function_select2 = (FUNCTION_SELECT & 0b10 ? bit_value : 0);
+	static constexpr uint8_t resistor_enable = (RESISTOR ? bit_value : 0);
+	static constexpr uint8_t initial_level = (INITIAL_LEVEL ? bit_value : 0);
 
 	static void init(void) {
 		if (INITIAL_LEVEL) *PxOUT |= bit_value;
@@ -155,7 +159,10 @@ struct GPIO_PIN_T {
 	}
 
 	static void wait_for_irq(void) {
-		enter_idle();
+		*PxIFGS &= ~bit_value;
+		while (!(*PxIFGS & bit_value)) {
+			enter_idle();
+		}
 	}
 
 	static void set_output(void) {
@@ -203,13 +210,13 @@ struct GPIO_MODULE_T: public GPIO_PIN_T<PORT, PIN, PIN_DIRECTION, LOW, INTERRUPT
 };
 
 struct PIN_UNUSED {
-	static constexpr unsigned char direction = 0;
-	static constexpr unsigned char interrupt_enable = 0;
-	static constexpr unsigned char interrupt_edge = 0;
-	static constexpr unsigned char function_select = 0;
-	static constexpr unsigned char function_select2 = 0;
-	static constexpr unsigned char resistor_enable = 0;
-	static constexpr unsigned char initial_level = 0;
+	static constexpr uint8_t direction = 0;
+	static constexpr uint8_t interrupt_enable = 0;
+	static constexpr uint8_t interrupt_edge = 0;
+	static constexpr uint8_t function_select = 0;
+	static constexpr uint8_t function_select2 = 0;
+	static constexpr uint8_t resistor_enable = 0;
+	static constexpr uint8_t initial_level = 0;
 };
 
 template<const int PORT,
@@ -222,20 +229,19 @@ template<const int PORT,
 	typename PIN6 = PIN_UNUSED,
 	typename PIN7 = PIN_UNUSED>
 struct GPIO_PORT_T {
-	static constexpr volatile unsigned char *PxIN = (unsigned char *) ports[PORT][0];
-	static constexpr volatile unsigned char *PxOUT = (unsigned char *) ports[PORT][1];
-	static constexpr volatile unsigned char *PxDIR = (unsigned char *) ports[PORT][2];
-	static constexpr volatile unsigned char *PxIFG = (unsigned char *) ports[PORT][3];
-	static constexpr volatile unsigned char *PxIES = (unsigned char *) ports[PORT][4];
-	static constexpr volatile unsigned char *PxIE = (unsigned char *) ports[PORT][5];
-	static constexpr volatile unsigned char *PxSEL = (unsigned char *) ports[PORT][6];
-	static constexpr volatile unsigned char *PxSEL2 = (unsigned char *) ports[PORT][7];
-	static constexpr volatile unsigned char *PxREN = (unsigned char *) ports[PORT][8];
-
-	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
+	static constexpr volatile uint8_t *PxIN = (uint8_t *) ports[PORT][0];
+	static constexpr volatile uint8_t *PxOUT = (uint8_t *) ports[PORT][1];
+	static constexpr volatile uint8_t *PxDIR = (uint8_t *) ports[PORT][2];
+	static constexpr volatile uint8_t *PxIFG = (uint8_t *) ports[PORT][3];
+	static constexpr volatile uint8_t *PxIES = (uint8_t *) ports[PORT][4];
+	static constexpr volatile uint8_t *PxIE = (uint8_t *) ports[PORT][5];
+	static constexpr volatile uint8_t *PxSEL = (uint8_t *) ports[PORT][6];
+	static constexpr volatile uint8_t *PxSEL2 = (uint8_t *) ports[PORT][7];
+	static constexpr volatile uint8_t *PxREN = (uint8_t *) ports[PORT][8];
+	static constexpr volatile uint8_t *PxIFGS = (uint8_t *) ports[PORT][9];
 
 	static void init(void) {
-		unsigned char reg;
+		uint8_t reg;
 
 		reg =
 			PIN0::direction | PIN1::direction | PIN2::direction | PIN3::direction |
@@ -270,6 +276,17 @@ struct GPIO_PORT_T {
 	static void clear_irq(void) {
 		*PxIFG = 0;
 	};
+
+	static bool handle_irq(void) {
+		bool resume = false;
+
+		if (*PxIFG) {
+			*PxIFGS = *PxIFG;
+			clear_irq();
+			resume = true;
+		}
+		return resume;
+	}
 };
 
 #endif
