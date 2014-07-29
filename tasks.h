@@ -5,7 +5,7 @@
 
 void enter_idle(void) {
 	__bis_SR_register(GIE + CPUOFF +
-			(VLOCLK_usage_count == 0 && LFXT1CLK_usage_count == 0 ? OSCOFF : 0) +
+			(VLOCLK_usage_count == 0 && LFXT1CLK_usage_count == 0 && DCOCLK_usage_count == 0 ? OSCOFF : 0) +
 			(DCOCLK_usage_count == 0 ? SCG0 + SCG1 : 0));
 }
 
