@@ -25,7 +25,7 @@ typedef GPIO_INPUT_T<1, 6> MISO;
 typedef GPIO_OUTPUT_T<1, 7> MOSI;
 typedef SOFT_SPI_T<SCLK, MOSI, MISO, true, 0> SPI;
 #elif defined(__MSP430_HAS_USCI__)
-typedef USCI_SPI_T<USCI_B, 0, SMCLK> SPI;
+typedef USCI_SPI_T<USCI_B, 0, SMCLK, true, 0> SPI;
 typedef GPIO_MODULE_T<1, 5, 3> SCLK;
 typedef GPIO_MODULE_T<1, 6, 3> MISO;
 typedef GPIO_MODULE_T<1, 7, 3> MOSI;

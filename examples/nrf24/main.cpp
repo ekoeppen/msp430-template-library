@@ -156,7 +156,7 @@ void watchdog_irq(void)
 void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
 void usci_tx_irq(void)
 {
-	if (SPI::handle_irq() || UART::handle_tx_irq()) exit_idle();
+	if (UART::handle_tx_irq()) exit_idle();
 }
 
 void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
