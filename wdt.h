@@ -31,7 +31,6 @@ struct WDT_T {
 			(MODE == WDT_TIMER ? WDTTMSEL : 0) +
 			(CLOCK::type == CLOCK_TYPE_ACLK ? WDTSSEL : 0) +
 			INTERVAL;
-		CLOCK::claim();
 	};
 
 	static void enable_irq(void) {
@@ -61,6 +60,13 @@ struct WDT_T {
 
 	static void disable(void) {
 		hold();
+	}
+
+	static void claim(void) {
+		CLOCK::claim();
+	}
+
+	static void release(void) {
 		CLOCK::release();
 	}
 };
