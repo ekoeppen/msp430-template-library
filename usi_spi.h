@@ -12,8 +12,8 @@ template<typename CLOCK,
 	const int DATA_LENGTH = 8,
 	const bool MSB = true>
 struct USI_SPI_T {
-	static int tx_count;
-	static int rx_count;
+	volatile static int tx_count;
+	volatile static int rx_count;
 	static uint8_t *rx_buffer;
 	static uint8_t *tx_buffer;
 
@@ -45,9 +45,9 @@ struct USI_SPI_T {
 		USICNT = DATA_LENGTH;
 		tx_count = 1;
 		rx_buffer = 0;
-		while (!TIMEOUT::triggered() && tx_count > 0) {
+		do {
 			enter_idle();
-		}
+		} while (!TIMEOUT::triggered() && tx_count > 0);
 		return USISRL;
 	}
 
@@ -59,21 +59,21 @@ struct USI_SPI_T {
 		rx_count = 0;
 		USISRL = *tx_data;
 		USICNT = DATA_LENGTH;
-		while (!TIMEOUT::triggered() && tx_count > 0) {
+		do {
 			enter_idle();
-		}
+		} while (!TIMEOUT::triggered() && tx_count > 0);
 	}
 
 	static bool handle_irq(void) {
 		bool resume = false;
 
 		if (USICTL1 & USIIFG) {
+			if (rx_buffer) {
+				*rx_buffer++ = USISRL;
+				rx_count++;
+			}
 			tx_count--;
 			if (tx_count > 0) {
-				if (rx_buffer) {
-					*rx_buffer++ = USISRL;
-					rx_count++;
-				}
 				USISRL = *tx_buffer++;
 				USICNT = DATA_LENGTH;
 			} else {
@@ -100,10 +100,10 @@ struct USI_SPI_T {
 };
 
 template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-int USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_count;
+volatile int USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::tx_count;
 
 template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
-int USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_count;
+volatile int USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_count;
 
 template<typename CLOCK, const bool MASTER, const int MODE, const long FREQUENCY, const int DATA_LENGTH, const bool LSB>
 uint8_t *USI_SPI_T<CLOCK, MASTER, MODE, FREQUENCY, DATA_LENGTH, LSB>::rx_buffer;
