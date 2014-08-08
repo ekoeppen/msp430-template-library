@@ -1,15 +1,13 @@
 CPU ?= msp430g2553
 
-SRCS := $(wildcard *.c) $(wildcard *.cpp) $(wildcard ../../*.c) \
-	#../spi/spi.c \
-	#../usci_uart/usci_uart.c \
-
+HEADERS := $(wildcard *.h) $(wildcard ../../*.h)
+SRCS := $(wildcard *.c) $(wildcard *.cpp) $(wildcard ../../*.c)
 
 CFLAGS = -std=c++0x -Os -g -I../.. \
 	 -fdata-sections -ffunction-sections \
 	 -Wl,--gc-sections
 
-prog.elf: $(SRCS) Makefile
+prog.elf: $(SRCS) $(HEADERS) Makefile
 	msp430-gcc -o $@ -mmcu=$(CPU) $(CFLAGS) $(SRCS)
 	msp430-objdump -S $@ >prog.lst
 	msp430-size --total $@
