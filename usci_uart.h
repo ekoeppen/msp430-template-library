@@ -59,6 +59,8 @@ struct USCI_UART_T {
 		CLOCK::claim();
 	}
 
+	static constexpr bool enabled(void) { return true; }
+
 	static void disable(void) {
 		CLOCK::release();
 	}

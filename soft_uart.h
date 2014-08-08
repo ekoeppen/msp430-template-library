@@ -21,6 +21,8 @@ struct SOFT_UART_T {
 	static void init(void) {
 	}
 
+	static constexpr bool enabled(void) { return true; }
+
 	static void disable(void) {
 	}
 

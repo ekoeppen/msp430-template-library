@@ -6,6 +6,26 @@
 
 extern "C" char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, int zero_pad);
 
+template<class T, class U>
+struct is_same {
+	enum { value = 0 };
+};
+
+template<class T>
+struct is_same<T, T> {
+	enum { value = 1 };
+};
+
+struct DISABLED_UART {
+	template<typename TIMEOUT = TIMEOUT_NEVER> static void init(void) { }
+	template<typename TIMEOUT = TIMEOUT_NEVER> static void putc(char data) { }
+	template<typename TIMEOUT = TIMEOUT_NEVER> static void puts(const char *data) { }
+	template<typename TIMEOUT = TIMEOUT_NEVER> static char getc() { }
+	static bool handle_rx_irq(void) { }
+	static bool handle_tx_irq(void) { }
+	static constexpr bool enabled(void) { return false; }
+};
+
 template<typename OUTPUT, typename TIMEOUT = TIMEOUT_NEVER>
 void vprintf(const char *fmt, va_list va)
 {
@@ -54,11 +74,13 @@ void vprintf(const char *fmt, va_list va)
 template<typename OUTPUT, typename TIMEOUT = TIMEOUT_NEVER>
 void printf(const char *fmt, ...)
 {
-	va_list va;
+	if (OUTPUT::enabled()) {
+		va_list va;
 
-	va_start(va, fmt);
-	vprintf<OUTPUT, TIMEOUT>(fmt, va);
-	va_end(va);
+		va_start(va, fmt);
+		vprintf<OUTPUT, TIMEOUT>(fmt, va);
+		va_end(va);
+	}
 }
 
 template<typename INPUT, typename TIMEOUT = TIMEOUT_NEVER>
