@@ -41,7 +41,7 @@ typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
 #else
 typedef GPIO_INPUT_T<1, 1> RX;
 typedef GPIO_OUTPUT_T<1, 2> TX;
-typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TIMER_MODE_CONTINUOUS> TIMER;
 typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
 

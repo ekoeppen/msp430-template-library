@@ -15,8 +15,9 @@ typedef GPIO_OUTPUT_T<1, 6> LED_GREEN;
 typedef GPIO_PORT_T<1, LED_RED, LED_GREEN> PORT1;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
-typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
-typedef TIMEOUT_T<WDT> TIMEOUT;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TIMER_MODE_CONTINUOUS> TIMER_SMCLK;
+typedef TIMER_T<TIMER_A, 0, ACLK, TIMER_MODE_UP, 1, CCIE, ACLK::frequency> TIMER_ACLK;
+typedef TIMEOUT_T<TIMER_ACLK> TIMEOUT;
 
 int main(void)
 {
@@ -24,11 +25,13 @@ int main(void)
 	ACLK::init();
 	SMCLK::init();
 	WDT::init();
-	TIMER::init();
 	PORT1::init();
-	WDT::enable_irq();
+	//WDT::enable_irq();
+	TIMER_ACLK::init();
 	while (1) {
+		TIMEOUT::set_and_wait(1000);
 		LED_RED::toggle();
+#if 0
 		LED_GREEN::set_high();
 		for (int i = 0; i < 10000; i++) {
 			unsigned int end = TIMER::counter() + 50000;
@@ -36,6 +39,16 @@ int main(void)
 		}
 		LED_GREEN::set_low();
 		TIMEOUT::set_and_wait(1000);
+#endif
+	}
+}
+
+void timer_irq(void) __attribute__((interrupt(TIMER0_A0_VECTOR)));
+void timer_irq(void)
+{
+	LED_GREEN::toggle();
+	if (TIMEOUT::count_down()) {
+		exit_idle();
 	}
 }
 
