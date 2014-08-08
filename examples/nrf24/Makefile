@@ -4,7 +4,7 @@ CPU = msp430g2553
 HEADERS := $(wildcard *.h) $(wildcard ../../*.h)
 SRCS := $(wildcard *.c) $(wildcard *.cpp) $(wildcard ../../*.c)
 
-CFLAGS = -std=c++0x -Os -g -I../.. \
+CFLAGS = -std=c++0x -Os -g -I../.. -I../../drivers \
 	 -fdata-sections -ffunction-sections \
 	 -Wl,--gc-sections
 
