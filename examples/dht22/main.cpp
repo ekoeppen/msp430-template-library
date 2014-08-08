@@ -102,3 +102,17 @@ void watchdog_irq(void)
 {
 	if (TIMEOUT::count_down()) exit_idle();
 }
+
+#ifdef __MSP430_HAS_USCI__
+void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
+void usci_tx_irq(void)
+{
+	if (UART::handle_tx_irq()) exit_idle();
+}
+
+void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
+void usci_rx_irq(void)
+{
+	if (UART::handle_rx_irq()) exit_idle();
+}
+#endif
