@@ -60,10 +60,6 @@ struct USCI_UART_T {
 	static void disable(void) {
 	}
 
-	static inline void enter_idle(void) {
-		__bis_SR_register(CLOCK::idle_mode + GIE);
-	}
-
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(uint8_t *tx_data, int count) {
 		CLOCK::claim();
