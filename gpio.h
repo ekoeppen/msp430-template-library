@@ -102,6 +102,7 @@ struct GPIO_PIN_T {
 	static constexpr uint8_t function_select2 = (FUNCTION_SELECT & 0b10 ? bit_value : 0);
 	static constexpr uint8_t resistor_enable = (RESISTOR ? bit_value : 0);
 	static constexpr uint8_t initial_level = (INITIAL_LEVEL ? bit_value : 0);
+	static constexpr uint8_t adc_input = (PORT == 1 ? bit_value : 0);
 
 	static void init(void) {
 		if (INITIAL_LEVEL) *PxOUT |= bit_value;
@@ -156,6 +157,11 @@ struct GPIO_PIN_T {
 
 	static void clear_irq(void) {
 		*PxIFG &= ~bit_value;
+		*PxIFGS &= ~bit_value;
+	}
+
+	static bool irq_raised(void) {
+		return *PxIFGS & bit_value;
 	}
 
 	static void wait_for_irq(void) {
@@ -209,6 +215,18 @@ template<const char PORT, const char PIN,
 struct GPIO_MODULE_T: public GPIO_PIN_T<PORT, PIN, PIN_DIRECTION, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, FUNCTION_SELECT, RESISTOR_DISABLED> {
 };
 
+template<const char PORT, const char PIN>
+struct GPIO_ANALOG_T {
+	static constexpr uint8_t direction = 0;
+	static constexpr uint8_t interrupt_enable = 0;
+	static constexpr uint8_t interrupt_edge = 0;
+	static constexpr uint8_t function_select = 0;
+	static constexpr uint8_t function_select2 = 0;
+	static constexpr uint8_t resistor_enable = 0;
+	static constexpr uint8_t initial_level = 0;
+	static constexpr uint8_t adc_input = (PORT == 1 ? 1 << PIN : 0);
+};
+
 struct PIN_UNUSED {
 	static constexpr uint8_t direction = 0;
 	static constexpr uint8_t interrupt_enable = 0;
@@ -217,6 +235,7 @@ struct PIN_UNUSED {
 	static constexpr uint8_t function_select2 = 0;
 	static constexpr uint8_t resistor_enable = 0;
 	static constexpr uint8_t initial_level = 0;
+	static constexpr uint8_t adc_input = 0;
 };
 
 template<const int PORT,
@@ -252,6 +271,11 @@ struct GPIO_PORT_T {
 			PIN0::interrupt_enable | PIN1::interrupt_enable | PIN2::interrupt_enable | PIN3::interrupt_enable |
 			PIN4::interrupt_enable | PIN5::interrupt_enable | PIN6::interrupt_enable | PIN7::interrupt_enable;
 		if (reg) *PxIE = reg;
+
+		reg =
+			PIN0::interrupt_edge | PIN1::interrupt_edge | PIN2::interrupt_edge | PIN3::interrupt_edge |
+			PIN4::interrupt_edge | PIN5::interrupt_edge | PIN6::interrupt_edge | PIN7::interrupt_edge;
+		if (reg) *PxIES = reg;
 
 		reg =
 			PIN0::function_select | PIN1::function_select | PIN2::function_select | PIN3::function_select |

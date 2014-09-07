@@ -4,18 +4,30 @@
 enum CLOCK_TYPE {
 	CLOCK_TYPE_ACLK,
 	CLOCK_TYPE_MCLK,
-	CLOCK_TYPE_SMCLK
+	CLOCK_TYPE_SMCLK,
+	CLOCK_TYPE_ADCOSC
 };
 
 enum CLOCK_SOURCE_TYPE {
 	CLOCK_SOURCE_TYPE_VLO,
 	CLOCK_SOURCE_TYPE_LFXT1,
-	CLOCK_SOURCE_TYPE_DCO
+	CLOCK_SOURCE_TYPE_DCO,
 };
 
 uint8_t VLOCLK_usage_count;
 uint8_t LFXT1CLK_usage_count;
 uint8_t DCOCLK_usage_count;
+
+inline void enter_idle(void) {
+	__bis_SR_register(GIE + CPUOFF
+			+
+			(VLOCLK_usage_count == 0 && LFXT1CLK_usage_count == 0 && DCOCLK_usage_count == 0 ? OSCOFF : 0) +
+			(DCOCLK_usage_count == 0 ? SCG0 + SCG1 : 0));
+}
+
+inline void exit_idle(void) {
+	__bic_SR_register_on_exit(LPM4_bits);
+}
 
 template<const uint16_t FREQUENCY = 12000>
 struct VLOCLK_T {
@@ -71,7 +83,6 @@ template<typename SOURCE,
 struct ACLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_ACLK;
 	static constexpr long frequency = SOURCE::frequency / DIVIDER;
-	static constexpr uint8_t idle_mode(void) { return LPM3_bits; }
 
 	static void init(void) {
 		if (SOURCE::type == CLOCK_SOURCE_TYPE_VLO) BCSCTL3 |= LFXT1S_2;
@@ -86,7 +97,6 @@ template<typename SOURCE,
 struct SMCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_SMCLK;
 	static constexpr long frequency = SOURCE::frequency / DIVIDER;
-	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
 
 	static void init(void) {
 		if (DIVIDER > 1) {
@@ -107,7 +117,6 @@ template<typename SOURCE,
 struct MCLK_T {
 	static constexpr CLOCK_TYPE type = CLOCK_TYPE_MCLK;
 	static constexpr long frequency = SOURCE::frequency / DIVIDER;
-	static constexpr uint8_t idle_mode(void) { return 0; }
 
 	static void init(void) {
 		switch (SOURCE::type) {

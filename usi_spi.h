@@ -25,11 +25,20 @@ struct USI_SPI_T {
 		USICNT = 8;
 		USISRL = 0;
 		enable_irq();
-		CLOCK::claim();
+	}
+
+	static void enable(void) {
+		USICTL0 |= USISWRST;
+		if (MODE == 0 || MODE == 1) USICTL1 = USICKPH;
+		USICKCTL = USISSEL_2 | USIDIV_0 | (MODE == 1 || MODE == 3 ? USICKPL : 0);
+		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
+		USICNT = 8;
+		USISRL = 0;
 	}
 
 	static void disable(void) {
-		CLOCK::release();
+		USICTL0 = USISWRST;
+		USICTL1 = 0;
 	}
 
 	static int ready(void) {
@@ -41,6 +50,7 @@ struct USI_SPI_T {
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static uint8_t transfer(uint8_t data) {
+		CLOCK::claim();
 		USISRL = data;
 		USICNT = DATA_LENGTH;
 		tx_count = 1;
@@ -48,11 +58,13 @@ struct USI_SPI_T {
 		do {
 			enter_idle();
 		} while (!TIMEOUT::triggered() && tx_count > 0);
+		CLOCK::release();
 		return USISRL;
 	}
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(uint8_t *tx_data, int count, uint8_t *rx_data = 0) {
+		CLOCK::claim();
 		tx_buffer = tx_data + 1;
 		tx_count = count;
 		rx_buffer = rx_data;
@@ -62,6 +74,7 @@ struct USI_SPI_T {
 		do {
 			enter_idle();
 		} while (!TIMEOUT::triggered() && tx_count > 0);
+		CLOCK::release();
 	}
 
 	static bool handle_irq(void) {

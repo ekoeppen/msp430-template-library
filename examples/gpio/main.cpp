@@ -28,7 +28,8 @@ typedef GPIO_INPUT_T<2, 4, RESISTOR_ENABLED, PULL_UP> P2_4;
 typedef GPIO_INPUT_T<2, 5, RESISTOR_ENABLED, PULL_UP> P2_5;
 typedef GPIO_INPUT_T<2, 6, RESISTOR_ENABLED, PULL_UP> P2_6;
 typedef GPIO_INPUT_T<2, 7, RESISTOR_ENABLED, PULL_UP> P2_7;
-typedef GPIO_PORT_T<1, LED_GREEN, SMCLK_OUT, ACLK_OUT, BUTTON> PORT1;
+typedef GPIO_PORT_T<1, LED_GREEN, /* SMCLK_OUT, ACLK_OUT, */ BUTTON> PORT1;
+typedef GPIO_PORT_T<2, P2_0, P2_1, P2_2, P2_3, P2_4, P2_5, P2_6, P2_7> PORT2;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
@@ -49,13 +50,16 @@ void port1_irq(void)
 int main(void)
 {
 	ACLK::init();
-	PORT1::init();
+	//PORT1::init();
+	PORT2::init();
 	WDT::init();
 	WDT::enable_irq();
+	P1DIR = 0xff;
+	P1OUT = 0;
 	while (1) {
-		BUTTON::wait_for_irq();
-		LED_GREEN::toggle();
+		__bis_SR_register(LPM4_bits);
+		//BUTTON::wait_for_irq();
+		//LED_GREEN::toggle();
 		TIMEOUT::set_and_wait(1000);
-		LED_GREEN::toggle();
 	}
 }

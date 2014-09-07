@@ -19,11 +19,17 @@ struct SOFT_UART_T {
 	static SOFT_UART_STATUS status;
 
 	static void init(void) {
+		TIMER::claim();
 	}
 
 	static constexpr bool enabled(void) { return true; }
 
+	static void enable(void) {
+		TIMER::claim();
+	}
+
 	static void disable(void) {
+		TIMER::release();
 	}
 
 	static int ready(void) {

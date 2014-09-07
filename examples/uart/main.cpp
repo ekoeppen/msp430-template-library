@@ -1,3 +1,6 @@
+#define SENDING
+// #define RECEIVING
+
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
@@ -38,13 +41,19 @@ int main(void)
 {
 	char c;
 
+
 	DCO::init();
 
 	MCLK::init();
 	SMCLK::init();
 	ACLK::init();
 
-	WDT::disable();
+#ifdef RECEIVING
+	WDT::hold();
+#else
+	WDT::init();
+	WDT::enable_irq();
+#endif
 	PORT1::init();
 #ifndef __MSP430_HAS_USCI__
 	TIMER::init();
@@ -52,7 +61,7 @@ int main(void)
 	UART::init();
 	while (1) {
 		LED_GREEN::toggle();
-#if 1
+#ifdef RECEIVING
 		UART::puts("Press any key...\n");
 		c = UART::getc();
 		printf<UART>("Key pressed = %c (code %d, hex %x, error %d)\n", c, c, c, UART::status.framing_error);
@@ -71,17 +80,13 @@ int main(void)
 void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
 void usci_tx_irq(void)
 {
-	if (UART::handle_tx_irq()) {
-		exit_idle();
-	}
+	if (UART::handle_tx_irq()) exit_idle();
 }
 
 void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
 void usci_rx_irq(void)
 {
-	if (UART::handle_rx_irq()) {
-		exit_idle();
-	}
+	if (UART::handle_rx_irq()) exit_idle();
 }
 #endif
 

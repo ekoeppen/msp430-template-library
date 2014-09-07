@@ -24,6 +24,8 @@ struct DISABLED_UART {
 	static bool handle_rx_irq(void) { }
 	static bool handle_tx_irq(void) { }
 	static constexpr bool enabled(void) { return false; }
+	static void enable(void) { }
+	static void disable(void) { }
 };
 
 template<typename OUTPUT, typename TIMEOUT = TIMEOUT_NEVER>

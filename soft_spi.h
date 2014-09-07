@@ -28,6 +28,9 @@ struct SOFT_SPI_T {
 		}
 	}
 
+	static void enable(void) {
+	}
+
 	static void disable(void) {
 	}
 

@@ -15,16 +15,7 @@ template<const USCI_MODULE MODULE,
 	const int DATA_LENGTH = 8,
 	const bool MSB = true>
 struct USCI_SPI_T {
-	static constexpr volatile unsigned char *CTL0 = USCI_REGISTER(MODULE, INSTANCE, 0);
-	static constexpr volatile unsigned char *CTL1 = USCI_REGISTER(MODULE, INSTANCE, 1);
-	static constexpr volatile unsigned char *BR0 = USCI_REGISTER(MODULE, INSTANCE, 2);
-	static constexpr volatile unsigned char *BR1 = USCI_REGISTER(MODULE, INSTANCE, 3);
-	static constexpr volatile unsigned char *MCTL = USCI_REGISTER(MODULE, INSTANCE, 4);
-	static constexpr volatile unsigned char *STAT = USCI_REGISTER(MODULE, INSTANCE, 5);
-	static constexpr volatile unsigned char *RXBUF = USCI_REGISTER(MODULE, INSTANCE, 6);
-	static constexpr volatile unsigned char *TXBUF = USCI_REGISTER(MODULE, INSTANCE, 7);
-
-	static constexpr uint8_t idle_mode(void) { return LPM0_bits; }
+	typedef USCI_T<MODULE, INSTANCE> USCI;
 
 	volatile static int tx_count;
 	volatile static int rx_count;
@@ -32,76 +23,92 @@ struct USCI_SPI_T {
 	static uint8_t *tx_buffer;
 
 	static void init(void) {
-		*CTL1 |= UCSWRST;
-		if (MCTL != 0) *MCTL = 0x00;
-		*CTL0 = (MODE == 0 || MODE == 2 ? UCCKPH : 0) |
+		*USCI::CTL1 |= UCSWRST;
+		if (USCI::MCTL != 0) *USCI::MCTL = 0x00;
+		*USCI::CTL0 = (MODE == 0 || MODE == 2 ? UCCKPH : 0) |
 			(MODE == 2 || MODE == 3 ? UCCKPL : 0) | UCMSB | (MASTER ? UCMST : 0) | UCMODE_0 | UCSYNC;
-		*BR0 = (CLOCK::frequency / FREQUENCY) & 0xff;
-		*BR1 = (CLOCK::frequency / FREQUENCY) >> 8;
+		*USCI::BR0 = (CLOCK::frequency / FREQUENCY) & 0xff;
+		*USCI::BR1 = (CLOCK::frequency / FREQUENCY) >> 8;
 		if (CLOCK::type == CLOCK_TYPE_ACLK) {
-			*CTL1 = UCSSEL_1;
+			*USCI::CTL1 = UCSSEL_1;
 		} else {
-			*CTL1 = UCSSEL_2;
+			*USCI::CTL1 = UCSSEL_2;
 		}
-		enable_rx_irq();
-		CLOCK::claim();
+		rx_buffer = 0;
+		tx_count = 0;
+		USCI::enable_rx_irq();
+	}
+
+	static void enable(void) {
 	}
 
 	static void disable(void) {
-		CLOCK::release();
 	}
 
 	static int ready(void) {
 	}
 
-	static void enable_rx_irq(void) {
-		IE2 |= (MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
-	}
-
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static uint8_t transfer(uint8_t data) {
-		*TXBUF = data;
+		CLOCK::claim();
+		tx_buffer = &data;
 		tx_count = 1;
 		rx_buffer = 0;
-		do {
+		USCI::enable_tx_irq();
+		while (!TIMEOUT::triggered() && tx_count > 0) {
 			enter_idle();
-		} while (!TIMEOUT::triggered() && tx_count > 0);
-		return *RXBUF;
+		}
+		CLOCK::release();
+		return *USCI::RXBUF;
 	}
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(uint8_t *tx_data, int count, uint8_t *rx_data = 0) {
-		tx_buffer = tx_data + 1;
+		CLOCK::claim();
+		tx_buffer = tx_data;
 		tx_count = count;
 		rx_buffer = rx_data;
 		rx_count = 0;
-		*TXBUF = *tx_data;
-		do {
+		USCI::enable_tx_irq();
+		while (!TIMEOUT::triggered() && tx_count > 0) {
 			enter_idle();
-		} while (!TIMEOUT::triggered() && tx_count > 0);
+		}
+		CLOCK::release();
 	}
 
-	static bool handle_irq(void) {
+	static bool handle_tx_irq(void) {
 		bool resume = false;
 
-		if (IFG2 & (MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG)) {
-			if (rx_buffer) {
-				*rx_buffer++ = *RXBUF;
-				rx_count++;
-			}
-			tx_count--;
+		if (USCI::tx_irq_pending()) {
 			if (tx_count > 0) {
-				*TXBUF = *tx_buffer++;
+				*USCI::TXBUF = *tx_buffer;
+				tx_buffer++;
+				tx_count--;
 			} else {
-				clear_rx_irq();
-				resume = true;
+				USCI::disable_tx_irq();
+				if (rx_buffer == 0) {
+					resume = true;
+				}
 			}
 		}
 		return resume;
 	}
 
-	static void clear_rx_irq(void) {
-		IFG2 &= ~(MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG);
+	static bool handle_rx_irq(void) {
+		bool resume = false;
+
+		if (USCI::rx_irq_pending()) {
+			if (rx_buffer) {
+				*rx_buffer = *USCI::RXBUF;
+				rx_buffer++;
+				rx_count++;
+			}
+			USCI::clear_rx_irq();
+			if (tx_count == 0) {
+				resume = true;
+			}
+		}
+		return resume;
 	}
 
 	static void putc(char data) {

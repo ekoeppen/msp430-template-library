@@ -42,8 +42,12 @@ struct USCI_T {
 		IE2 |= (MODULE == USCI_A ? UCA0TXIE : UCB0TXIE);
 	}
 
-	static inline void enter_idle(void) {
-		__bis_SR_register(LPM0_bits + GIE);
+	static void disable_tx_irq(void) {
+		IE2 &= ~(MODULE == USCI_A ? UCA0TXIE : UCB0TXIE);
+	}
+
+	static void disable_rx_irq(void) {
+		IE2 &= ~(MODULE == USCI_A ? UCA0RXIE : UCB0RXIE);
 	}
 
 	static void clear_rx_irq(void) {
@@ -54,8 +58,12 @@ struct USCI_T {
 		IFG2 &= ~(MODULE == USCI_A ? UCA0TXIFG : UCB0TXIFG);
 	}
 
-	static inline void resume_irq(void) {
-		__bic_SR_register_on_exit(LPM0_bits);
+	static bool tx_irq_pending(void) {
+		return (IFG2 & (MODULE == USCI_A ? UCA0TXIFG : UCB0TXIFG));
+	}
+
+	static bool rx_irq_pending(void) {
+		return (IFG2 & (MODULE == USCI_A ? UCA0RXIFG : UCB0RXIFG));
 	}
 
 };

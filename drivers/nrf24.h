@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <utils.h>
+#include <tasks.h>
 
 #define RF24_ADDR_WIDTH     5
 #define TX_PLOAD_WIDTH     32
@@ -123,8 +124,7 @@ static constexpr uint8_t nrf24_init_values[][2] = {
 	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC}
 };
 
-template<typename TIMEOUT,
-	typename SPI,
+template<typename SPI,
 	typename CSN,
 	typename CE,
 	typename IRQ>
@@ -154,33 +154,32 @@ struct NRF24_T {
 	}
 
 	static void tx_buffer(const uint8_t tx_addr[5], const uint8_t *data, const uint8_t len, bool auto_ack) {
-		CE::set_low();
 		write_reg(RF24_W_REGISTER + RF24_TX_ADDR, tx_addr, RF24_ADDR_WIDTH);
 		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P0, tx_addr, RF24_ADDR_WIDTH);
 		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(auto_ack ? RF24_W_TX_PAYLOAD : RF24_W_TX_PAYLOAD_NOACK, data, len);
 		CE::set_high();
-		TIMEOUT::set_and_wait(50);
+		__delay_cycles(500);
 		CE::set_low();
 		while (IRQ::is_high());
 		rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_TX_DS | RF24_MAX_RT);
 	}
 
-	static int rx_buffer(uint8_t *data, int max_len, uint8_t *pipe, unsigned int timeout) {
+	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
+	static int rx_buffer(uint8_t *data, int max_len, uint8_t *pipe) {
 		int n = 0;
 
-		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		TIMEOUT::set_and_wait(10);
-		CE::set_high();
-		TIMEOUT::set(timeout);
 		do {
 			if (!(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY)) {
 				n = rw_reg(RF24_R_RX_PL_WID, RF24_NOP);
 				rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
 			} else {
-				while (IRQ::is_high() && !TIMEOUT::triggered());
+				IRQ::clear_irq();
+				while (!IRQ::irq_raised() && !RX_TIMEOUT::triggered()) {
+					enter_idle();
+				}
 			}
-		} while (n == 0 && !TIMEOUT::triggered());
+		} while (n == 0 && !RX_TIMEOUT::triggered());
 		if (n > 0) {
 			if (n > max_len) n = max_len;
 			if (pipe != 0) {
@@ -188,8 +187,6 @@ struct NRF24_T {
 			}
 			read_reg(RF24_R_RX_PAYLOAD, data, n);
 		}
-		CE::set_low();
-		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP);
 		return n;
 	}
 
@@ -200,7 +197,7 @@ struct NRF24_T {
 
 	static void start_rx(void) {
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		TIMEOUT::set_and_wait(10);
+		__delay_cycles(500);
 		CE::set_high();
 	}
 

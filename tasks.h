@@ -3,64 +3,57 @@
 
 #include <clocks.h>
 
-void enter_idle(void) {
-	__bis_SR_register(GIE + CPUOFF +
-			(VLOCLK_usage_count == 0 && LFXT1CLK_usage_count == 0 && DCOCLK_usage_count == 0 ? OSCOFF : 0) +
-			(DCOCLK_usage_count == 0 ? SCG0 + SCG1 : 0));
-}
-
-inline void exit_idle(void) {
-	__bic_SR_register_on_exit(LPM4_bits);
-}
-
 template<typename CLOCK>
 struct TIMEOUT_T {
-	static volatile unsigned long timeout;
+	static volatile uint32_t timeout;
 
-	static void set(const unsigned long milliseconds) {
+	static void set(const uint32_t milliseconds) {
 		__bic_SR_register(GIE);
-		timeout = milliseconds * CLOCK::frequency / 1000;
+		timeout = ((uint32_t) milliseconds * (uint32_t) CLOCK::frequency / (uint32_t) 1000);
 		__bis_SR_register(GIE);
 		CLOCK::claim();
 	};
 
 	static inline bool count_down(void) {
-		bool triggered = (!timeout || (--timeout == 0));
-		if (triggered) CLOCK::release();
-		return triggered;
+		return !timeout || (--timeout == 0);
 	};
 
 	static inline bool triggered(void) {
 		return timeout == 0;
 	};
 
-	static inline unsigned long get() {
+	static inline void disable(void) {
+		CLOCK::release();
+	}
+
+	static inline uint32_t get() {
 		return timeout;
 	};
 
-	static void set_and_wait(const unsigned long milliseconds) {
+	static void set_and_wait(const uint32_t milliseconds) {
 		set(milliseconds);
 		while (!triggered()) {
 			enter_idle();
 		}
+		disable();
 	}
 };
 
 struct TIMEOUT_NEVER {
-	static void set(const unsigned long milliseconds) { }
+	static void set(const uint32_t milliseconds) { }
 	static inline bool count_down(void) { return false; }
 	static inline bool triggered(void) { return false; }
-	static inline unsigned long get() { return 1; }
+	static inline uint32_t get() { return 1; }
 };
 
 struct TIMEOUT_IMMEDIATELY {
-	static void set(const unsigned long milliseconds) { }
+	static void set(const uint32_t milliseconds) { }
 	static inline bool count_down(void) { return true; }
 	static inline bool triggered(void) { return true; }
-	static inline unsigned long get() { return 0; }
+	static inline uint32_t get() { return 0; }
 };
 
 template<typename CLOCK>
-volatile unsigned long TIMEOUT_T<CLOCK>::timeout;
+volatile uint32_t TIMEOUT_T<CLOCK>::timeout;
 
 #endif

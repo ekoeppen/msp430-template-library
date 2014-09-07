@@ -1,5 +1,5 @@
-#ifndef __MOTE_H
-#define __MOTE_H
+#ifndef __SWAP_MOTE_H
+#define __SWAP_MOTE_H
 
 #define SWAP_CONFIG_DATA 1
 
@@ -50,6 +50,19 @@ struct CONFIGURATION_DATA {
 	uint8_t address[5];
 	uint8_t channel;
 	uint16_t tx_interval;
+
+	void update(uint8_t ch, uint8_t addr, uint16_t tx_int) {
+		tag = SWAP_CONFIG_DATA;
+		length = sizeof(CONFIGURATION_DATA) - 2;
+		address[1] = address[2] = address[3] = address[4] = 0xf0;
+		address[0] = addr;
+		channel = ch;
+		tx_interval = tx_int;
+	}
+};
+
+struct CONFIG_STORAGE_UNUSED {
+	static void write(const void *data, unsigned size) { }
 };
 
 struct UNUSED_REGISTER {
@@ -86,7 +99,7 @@ struct PRODUCT_CODE_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) { return false; }
-	static bool handle_query(SWAP_PACKET& packet) { return false; }
+	static bool handle_query(SWAP_PACKET& packet) { return true; }
 	static void update(void) { };
 };
 
@@ -99,7 +112,65 @@ struct SYSTEM_STATE_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) { return false; }
-	static bool handle_query(SWAP_PACKET& packet) { return false; }
+	static bool handle_query(SWAP_PACKET& packet) { return true; }
+	static void update(void) { };
+};
+
+template<CONFIGURATION_DATA *config, typename CONFIG_STORAGE>
+struct CHANNEL_REGISTER_T {
+	static bool write(SWAP_PACKET& packet) {
+		packet.reg_id = CHANNEL_REG;
+		packet.reg_value[0] = config->channel;
+		packet.len = 7 + 1;
+		return true;
+	};
+	static bool handle_command(SWAP_PACKET& packet) {
+		CONFIGURATION_DATA c;
+		c.update(packet.reg_value[0], config->address[0], config->tx_interval);
+		CONFIG_STORAGE::write(&c, sizeof(c));
+	}
+	static bool handle_query(SWAP_PACKET& packet) {
+		return true;
+	}
+	static void update(void) { };
+};
+
+template<CONFIGURATION_DATA *config, typename CONFIG_STORAGE>
+struct DEVICE_ADDR_REGISTER_T {
+	static bool write(SWAP_PACKET& packet) {
+		packet.reg_id = DEVICE_ADDR_REG;
+		packet.reg_value[0] = config->address[0];
+		packet.len = 7 + 1;
+		return true;
+	};
+	static bool handle_command(SWAP_PACKET& packet) {
+		CONFIGURATION_DATA c;
+		c.update(config->channel, packet.reg_value[0], config->tx_interval);
+		CONFIG_STORAGE::write(&c, sizeof(c));
+	}
+	static bool handle_query(SWAP_PACKET& packet) {
+		return true;
+	}
+	static void update(void) { };
+};
+
+template<CONFIGURATION_DATA *config, typename CONFIG_STORAGE>
+struct TX_INTERVAL_REGISTER_T {
+	static bool write(SWAP_PACKET& packet) {
+		packet.reg_id = TX_INTERVAL_REG;
+		packet.reg_value[0] = config->tx_interval >> 8;
+		packet.reg_value[1] = config->tx_interval & 0xff;
+		packet.len = 7 + 2;
+		return true;
+	};
+	static bool handle_command(SWAP_PACKET& packet) {
+		CONFIGURATION_DATA c;
+		c.update(config->channel, config->address[0], (packet.reg_value[0] << 8) + packet.reg_value[1]);
+		CONFIG_STORAGE::write(&c, sizeof(c));
+	}
+	static bool handle_query(SWAP_PACKET& packet) {
+		return true;
+	}
 	static void update(void) { };
 };
 
@@ -110,6 +181,7 @@ template<const uint32_t MANUFACTURER_ID,
 	typename RADIO,
 	const uint8_t DEFAULT_CHANNEL,
 	typename TIMEOUT,
+	typename CONFIG_STORAGE = CONFIG_STORAGE_UNUSED,
 	typename REGISTER1 = UNUSED_REGISTER,
 	typename REGISTER2 = UNUSED_REGISTER,
 	typename REGISTER3 = UNUSED_REGISTER,
@@ -118,7 +190,7 @@ template<const uint32_t MANUFACTURER_ID,
 	typename REGISTER6 = UNUSED_REGISTER,
 	typename REGISTER7 = UNUSED_REGISTER,
 	typename REGISTER8 = UNUSED_REGISTER>
-struct MOTE_T {
+struct SWAP_MOTE_T {
 	static SWAP_PACKET rx_packet;
 	static SWAP_PACKET tx_packet;
 	static uint8_t state;
@@ -127,6 +199,9 @@ struct MOTE_T {
 
 	typedef PRODUCT_CODE_REGISTER_T<MANUFACTURER_ID, PRODUCT_ID> PRODUCT_CODE_REGISTER;
 	typedef SYSTEM_STATE_REGISTER_T<&state> SYSTEM_STATE_REGISTER;
+	typedef CHANNEL_REGISTER_T<&config, CONFIG_STORAGE> CHANNEL_REGISTER;
+	typedef DEVICE_ADDR_REGISTER_T<&config, CONFIG_STORAGE> DEVICE_ADDR_REGISTER;
+	typedef TX_INTERVAL_REGISTER_T<&config, CONFIG_STORAGE> TX_INTERVAL_REGISTER;
 
 	static bool address_match(void) {
 		return rx_packet.reg_addr == 0 || rx_packet.reg_addr == config.address[0];
@@ -144,6 +219,7 @@ struct MOTE_T {
 
 	static void init(void) {
 		RADIO::set_channel(config.channel);
+		RADIO::set_rx_addr(config.address);
 	}
 
 	static bool handle_radio(uint16_t timeout) {
@@ -171,6 +247,7 @@ struct MOTE_T {
 		RADIO::start_rx();
 		handle_radio(10000);
 		state = RXOFF;
+		RADIO::start_tx();
 		SYSTEM_STATE_REGISTER::write(tx_packet); send_tx_packet();
 		RADIO::power_down();
 	};
@@ -180,7 +257,15 @@ struct MOTE_T {
 
 	static void handle_query(void) {
 		if (address_match()) {
-			if (REGISTER1::handle_query(rx_packet) && REGISTER1::write(tx_packet)) send_tx_packet();
+			if (SYSTEM_STATE_REGISTER::handle_query(rx_packet) &&
+					SYSTEM_STATE_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (CHANNEL_REGISTER::handle_query(rx_packet) &&
+					CHANNEL_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (DEVICE_ADDR_REGISTER::handle_query(rx_packet) &&
+					DEVICE_ADDR_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (TX_INTERVAL_REGISTER::handle_query(rx_packet) &&
+					TX_INTERVAL_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (REGISTER1::handle_query(rx_packet) && REGISTER1::write(tx_packet)) send_tx_packet();
 			else if (REGISTER2::handle_query(rx_packet) && REGISTER2::write(tx_packet)) send_tx_packet();
 			else if (REGISTER3::handle_query(rx_packet) && REGISTER3::write(tx_packet)) send_tx_packet();
 			else if (REGISTER4::handle_query(rx_packet) && REGISTER4::write(tx_packet)) send_tx_packet();
@@ -193,7 +278,15 @@ struct MOTE_T {
 
 	static bool handle_command(void) {
 		if (address_match()) {
-			if (REGISTER1::handle_command(rx_packet) && REGISTER1::write(tx_packet)) send_tx_packet();
+			if (SYSTEM_STATE_REGISTER::handle_command(rx_packet) &&
+					SYSTEM_STATE_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (CHANNEL_REGISTER::handle_command(rx_packet) &&
+					CHANNEL_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (DEVICE_ADDR_REGISTER::handle_command(rx_packet) &&
+					DEVICE_ADDR_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (TX_INTERVAL_REGISTER::handle_command(rx_packet) &&
+					TX_INTERVAL_REGISTER::write(tx_packet)) send_tx_packet();
+			else if (REGISTER1::handle_command(rx_packet) && REGISTER1::write(tx_packet)) send_tx_packet();
 			else if (REGISTER2::handle_command(rx_packet) && REGISTER2::write(tx_packet)) send_tx_packet();
 			else if (REGISTER3::handle_command(rx_packet) && REGISTER3::write(tx_packet)) send_tx_packet();
 			else if (REGISTER4::handle_command(rx_packet) && REGISTER4::write(tx_packet)) send_tx_packet();
@@ -229,7 +322,7 @@ struct MOTE_T {
 	};
 
 	static void sleep(void) {
-		TIMEOUT::set_and_wait(config.tx_interval * 1000);
+		TIMEOUT::set_and_wait((uint32_t) config.tx_interval * (uint32_t) 1000);
 	};
 
 	static void run(void) {
@@ -244,23 +337,26 @@ struct MOTE_T {
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
 	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-SWAP_PACKET MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT,
+SWAP_PACKET SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4, REGISTER5, REGISTER6, REGISTER7, REGISTER8>::tx_packet;
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
 	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-SWAP_PACKET MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT,
+SWAP_PACKET SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4, REGISTER5, REGISTER6, REGISTER7, REGISTER8>::rx_packet;
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
 	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-CONFIGURATION_DATA MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT,
+CONFIGURATION_DATA SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4,
 	    REGISTER5, REGISTER6, REGISTER7, REGISTER8>::config __attribute__((section(".infod"))) = {
 	SWAP_CONFIG_DATA,
@@ -272,17 +368,19 @@ CONFIGURATION_DATA MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWAR
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
 	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-const uint8_t MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT,
+const uint8_t SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4,
 	    REGISTER5, REGISTER6, REGISTER7, REGISTER8>::BROADCAST_ADDR[5] = {0x00, 0xf0, 0xf0, 0xf0, 0xf0};
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
 	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-uint8_t MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT,
+uint8_t SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4, REGISTER5, REGISTER6, REGISTER7, REGISTER8>::state;
 
 #endif

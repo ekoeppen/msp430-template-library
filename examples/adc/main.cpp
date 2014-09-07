@@ -24,14 +24,16 @@ typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
 #else
 typedef GPIO_INPUT_T<1, 1> RX;
 typedef GPIO_OUTPUT_T<1, 2> TX;
-typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TIMER_MODE_CONTINUOUS> TIMER;
 typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
-typedef GPIO_PORT_T<1, RX, TX> PORT1;
+typedef GPIO_ANALOG_T<1, 3> ADC_INPUT;
+typedef GPIO_ANALOG_T<1, 4> ADC_REFOUT;
+typedef GPIO_PORT_T<1, RX, TX, ADC_INPUT, ADC_REFOUT> PORT1;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 
-typedef ADC10_T<ADC10OSC, 0, 0, 1 << BIT3> ADC_CHANNEL_3;
+typedef ADC10_T<ADC10OSC, 0, 0, ADC_INPUT, ADC_REFOUT> ADC_CHANNEL_3;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
@@ -40,7 +42,7 @@ int adc_read_ref(int channel, int ref)
 	int r;
 
 	ADC10CTL0 &= ~ENC;
-	ADC10CTL0 = SREF_1 + ADC10SHT_3 + REFON + ADC10ON + ref;
+	ADC10CTL0 = SREF_1 + ADC10SHT_3 + REFON + REFOUT + ADC10ON + ref;
 	ADC10CTL1 = ADC10SSEL_3 + channel;
 	__delay_cycles (128);
 	ADC10CTL0 |= ENC + ADC10SC;
@@ -73,7 +75,7 @@ unsigned read_voltage(void)
 	unsigned adc, voltage;
 
 	ADC10CTL1 = INCH_11 | ADC10DIV_3 | ADC10SSEL_3;
-	ADC10CTL0 = ADC10SHT_3 | ADC10ON | ENC | ADC10SC | REFON | SREF_1;
+	ADC10CTL0 = ADC10SHT_3 | ADC10ON | ENC | ADC10SC | REFON | REFBURST | SREF_1;
 	while (ADC10CTL1 & ADC10BUSY) ;
 	adc = ADC10MEM;
 	ADC10CTL0 &= ~ENC;
@@ -101,6 +103,9 @@ int main(void)
 	MCLK::init();
 	WDT::init();
 	PORT1::init();
+#ifndef __MSP430_HAS_USCI__
+	TIMER::init();
+#endif
 	UART::init();
 	WDT::enable_irq();
 	printf<UART>("ADC example:\n");
@@ -114,7 +119,10 @@ int main(void)
 		printf<UART>("\rADC: no ref: %d ref 2.5: %d norm: %d r: %d V: %d\033[K",
 			     adc, adc_ref, adc_norm, r, vcc_milli);
 		ADC_CHANNEL_3::disable();
-		TIMEOUT::set(200);
+		ADC10CTL0 &= ~ENC;
+		ADC10CTL0 &= ~REFON;
+		ADC10CTL0 &= ~ADC10ON;
+		TIMEOUT::set(1000);
 		enter_idle();
 	}
 }
@@ -124,3 +132,17 @@ void watchdog_irq(void)
 {
 	if (TIMEOUT::count_down()) exit_idle();
 }
+
+#ifdef __MSP430_HAS_USCI__
+void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
+void usci_tx_irq(void)
+{
+	if (UART::handle_tx_irq()) exit_idle();
+}
+
+void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
+void usci_rx_irq(void)
+{
+	if (UART::handle_rx_irq()) exit_idle();
+}
+#endif
