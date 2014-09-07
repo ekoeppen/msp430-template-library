@@ -129,6 +129,8 @@ template<typename SPI,
 	typename CE,
 	typename IRQ>
 struct NRF24_T {
+	static uint8_t rw_reg_buffer[2];
+
 	static void init(void) {
 		for (int i = 0; i < ARRAY_COUNT(nrf24_init_values); i++) {
 			rw_reg(nrf24_init_values[i][0], nrf24_init_values[i][1]);
@@ -183,7 +185,7 @@ struct NRF24_T {
 		if (n > 0) {
 			if (n > max_len) n = max_len;
 			if (pipe != 0) {
-				*pipe = (rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) >> 1) & 0x03;
+				*pipe = rw_reg_buffer[0];
 			}
 			read_reg(RF24_R_RX_PAYLOAD, data, n);
 		}
@@ -208,13 +210,11 @@ struct NRF24_T {
 
 	static uint8_t rw_reg(uint8_t reg, uint8_t value)
 	{
-		static uint8_t buffer[2];
-
-		buffer[0] = reg; buffer[1] = value;
+		rw_reg_buffer[0] = reg; rw_reg_buffer[1] = value;
 		CSN::set_low();
-		SPI::transfer(buffer, 2, buffer);
+		SPI::transfer(rw_reg_buffer, 2, rw_reg_buffer);
 		CSN::set_high();
-		return buffer[1];
+		return rw_reg_buffer[1];
 	}
 
 	static void spi_transfer_buffer(uint8_t reg, int dir, uint8_t *data, int len)
@@ -253,5 +253,8 @@ struct NRF24_T {
 		}
 	}
 };
+
+template<typename SPI, typename CSN, typename CE, typename IRQ>
+uint8_t NRF24_T<SPI, CSN, CE, IRQ>::rw_reg_buffer[2];
 
 #endif
