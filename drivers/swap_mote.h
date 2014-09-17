@@ -222,11 +222,12 @@ struct SWAP_MOTE_T {
 		RADIO::set_rx_addr(config.address);
 	}
 
-	static bool handle_radio(uint16_t timeout) {
+	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
+	static bool handle_radio(void) {
 		uint8_t pipe;
 		bool got_packet = false;
 
-		if (RADIO::rx_buffer((uint8_t *) &rx_packet, sizeof(rx_packet) - sizeof(rx_packet.len), &pipe, timeout) > 0) {
+		if (RADIO::template rx_buffer<RX_TIMEOUT>((uint8_t *) &rx_packet, sizeof(rx_packet) - sizeof(rx_packet.len), &pipe) > 0) {
 			got_packet = true;
 			if (address_match()) {
 				switch (rx_packet.function) {
@@ -239,13 +240,14 @@ struct SWAP_MOTE_T {
 		return got_packet;
 	}
 
+	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
 	static void announce(void) {
 		RADIO::start_tx();
 		PRODUCT_CODE_REGISTER::write(tx_packet); send_tx_packet();
 		state = SYNC;
 		SYSTEM_STATE_REGISTER::write(tx_packet); send_tx_packet();
 		RADIO::start_rx();
-		handle_radio(10000);
+		handle_radio<RX_TIMEOUT>();
 		state = RXOFF;
 		RADIO::start_tx();
 		SYSTEM_STATE_REGISTER::write(tx_packet); send_tx_packet();
