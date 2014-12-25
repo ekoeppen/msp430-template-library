@@ -5,7 +5,7 @@
 
 extern "C" {
 
-char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, int zero_pad);
+char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, unsigned int unsigned_value, int zero_pad);
 
 }
 

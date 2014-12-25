@@ -1,13 +1,13 @@
 #include <stdint.h>
 
-char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, int zero_pad)
+char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, unsigned int value_unsigned, int zero_pad)
 {
 	static char buffer[11];
 	char *p = &buffer[10];
 	int negative = 0;
 	int digit;
 
-	if (value < 0 && radix == 10) {
+	if (value < 0 && radix == 10 && !value_unsigned) {
 		negative = 1;
 		value = -value;
 	}

@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <tasks.h>
 
-extern "C" char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, int zero_pad);
+extern "C" char *itoa_ext(int value, unsigned int radix, unsigned int uppercase, unsigned int unsigned_value, int zero_pad);
 
 template<class T, class U>
 struct is_same {
@@ -56,7 +56,7 @@ void vprintf(const char *fmt, va_list va)
 				case 'X':
 					OUTPUT::template puts<TIMEOUT>(itoa_ext(va_arg(va, unsigned int),
 								ch == 'u' || ch == 'd' ? 10 : 16,
-								ch == 'X', zero_pad));
+								ch == 'X', ch == 'u', zero_pad));
 					break;
 				case 'c' :
 					OUTPUT::template putc<TIMEOUT>((char)(va_arg(va, int)));
