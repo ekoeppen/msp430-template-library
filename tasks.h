@@ -44,6 +44,7 @@ struct TIMEOUT_NEVER {
 	static inline bool count_down(void) { return false; }
 	static inline bool triggered(void) { return false; }
 	static inline uint32_t get() { return 1; }
+	static void disable(void) { }
 };
 
 struct TIMEOUT_IMMEDIATELY {
@@ -51,6 +52,7 @@ struct TIMEOUT_IMMEDIATELY {
 	static inline bool count_down(void) { return true; }
 	static inline bool triggered(void) { return true; }
 	static inline uint32_t get() { return 0; }
+	static void disable(void) { }
 };
 
 template<typename CLOCK>
