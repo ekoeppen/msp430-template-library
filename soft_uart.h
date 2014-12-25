@@ -36,9 +36,6 @@ struct SOFT_UART_T {
 		return 0;
 	}
 
-	static void transfer(uint8_t *tx_data, int count) {
-	}
-
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void putc(char data) {
 		unsigned st;
@@ -56,6 +53,13 @@ struct SOFT_UART_T {
 		st += bit_time;
 		TX::set_high();
 		while (TIMER::counter() - st < bit_time);
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void transfer(uint8_t *tx_data, int count) {
+		while (count--) {
+			putc(*tx_data++);
+		}
 	}
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
