@@ -3,6 +3,8 @@
 
 #define SWAP_CONFIG_DATA 1
 
+uint8_t __regs[64];
+
 enum PACKET_TYPE {
 	STATUS = 0,
 	QUERY = 1,
@@ -72,14 +74,15 @@ struct UNUSED_REGISTER {
 	static void update(void) { }
 };
 
-template<const uint32_t ID, const uint16_t VALUE>
-struct REGISTER_T {
+template<const uint32_t ID>
+struct GENERIC_REGISTER_T {
 	static constexpr uint8_t reg_id = ID;
-	static bool write(SWAP_PACKET& packet) {
+	static bool write(SWAP_PACKET& packet, uint8_t *data, uint8_t len) {
 		packet.reg_id = ID;
-		packet.reg_value[0] = VALUE >> 8;
-		packet.reg_value[1] = VALUE & 0xff;
-		packet.len = 7 + 2;
+		for (int i = 0; i < len; i++) {
+			packet.reg_value[i] = data[i];
+		}
+		packet.len = 7 + len;
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) { return false; }
@@ -99,7 +102,7 @@ struct PRODUCT_CODE_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) { return false; }
-	static bool handle_query(SWAP_PACKET& packet) { return true; }
+	static bool handle_query(SWAP_PACKET& packet) { return false; }
 	static void update(void) { };
 };
 
@@ -112,7 +115,7 @@ struct SYSTEM_STATE_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) { return false; }
-	static bool handle_query(SWAP_PACKET& packet) { return true; }
+	static bool handle_query(SWAP_PACKET& packet) { return false; }
 	static void update(void) { };
 };
 
@@ -125,12 +128,16 @@ struct CHANNEL_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) {
-		CONFIGURATION_DATA c;
-		c.update(packet.reg_value[0], config->address[0], config->tx_interval);
-		CONFIG_STORAGE::write(&c, sizeof(c));
+		bool r = false;
+		if (packet.reg_id == CHANNEL_REG) {
+			CONFIGURATION_DATA c;
+			c.update(packet.reg_value[0], config->address[0], config->tx_interval);
+			CONFIG_STORAGE::write(&c, sizeof(c));
+			r = true;
+		} return r;
 	}
 	static bool handle_query(SWAP_PACKET& packet) {
-		return true;
+		return false;
 	}
 	static void update(void) { };
 };
@@ -144,12 +151,17 @@ struct DEVICE_ADDR_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) {
-		CONFIGURATION_DATA c;
-		c.update(config->channel, packet.reg_value[0], config->tx_interval);
-		CONFIG_STORAGE::write(&c, sizeof(c));
+		bool r = false;
+		if (packet.reg_id == DEVICE_ADDR_REG) {
+			CONFIGURATION_DATA c;
+			c.update(config->channel, packet.reg_value[0], config->tx_interval);
+			CONFIG_STORAGE::write(&c, sizeof(c));
+			r = true;
+		}
+		return r;
 	}
 	static bool handle_query(SWAP_PACKET& packet) {
-		return true;
+		return false;
 	}
 	static void update(void) { };
 };
@@ -164,15 +176,22 @@ struct TX_INTERVAL_REGISTER_T {
 		return true;
 	};
 	static bool handle_command(SWAP_PACKET& packet) {
-		CONFIGURATION_DATA c;
-		c.update(config->channel, config->address[0], (packet.reg_value[0] << 8) + packet.reg_value[1]);
-		CONFIG_STORAGE::write(&c, sizeof(c));
+		bool r = false;
+		if (packet.reg_id == TX_INTERVAL_REG) {
+			CONFIGURATION_DATA c;
+			c.update(config->channel, config->address[0], (packet.reg_value[0] << 8) + packet.reg_value[1]);
+			CONFIG_STORAGE::write(&c, sizeof(c));
+			r = true;
+		}
+		return r;
 	}
 	static bool handle_query(SWAP_PACKET& packet) {
-		return true;
+		return false;
 	}
 	static void update(void) { };
 };
+
+typedef bool(*STATUS_CALLBACK)(void);
 
 template<const uint32_t MANUFACTURER_ID,
 	const uint32_t PRODUCT_ID,
@@ -180,7 +199,6 @@ template<const uint32_t MANUFACTURER_ID,
 	const uint32_t FIRMWARE_VERSION,
 	typename RADIO,
 	const uint8_t DEFAULT_CHANNEL,
-	typename TIMEOUT,
 	typename CONFIG_STORAGE = CONFIG_STORAGE_UNUSED,
 	typename REGISTER1 = UNUSED_REGISTER,
 	typename REGISTER2 = UNUSED_REGISTER,
@@ -203,18 +221,33 @@ struct SWAP_MOTE_T {
 	typedef DEVICE_ADDR_REGISTER_T<&config, CONFIG_STORAGE> DEVICE_ADDR_REGISTER;
 	typedef TX_INTERVAL_REGISTER_T<&config, CONFIG_STORAGE> TX_INTERVAL_REGISTER;
 
+	static void start_tx(void) { RADIO::start_tx(); }
+	static void start_rx(void) { RADIO::start_rx(); }
+
 	static bool address_match(void) {
 		return rx_packet.reg_addr == 0 || rx_packet.reg_addr == config.address[0];
 	};
 
-	static void send_tx_packet(void) {
+	static void send_tx_packet(uint8_t function, uint8_t dest, uint8_t reg_addr) {
 		tx_packet.src = config.address[0];
-		tx_packet.dest = 0;
-		tx_packet.function = STATUS;
 		tx_packet.nonce = 0;
 		tx_packet.hop_secu = 0;
-		tx_packet.reg_addr = config.address[0];
+		tx_packet.dest = dest;
+		tx_packet.function = function;
+		tx_packet.reg_addr = reg_addr;
 		RADIO::tx_buffer(BROADCAST_ADDR, (uint8_t *) &tx_packet, tx_packet.len, false);
+	}
+
+	static void send_status_packet(void) {
+		send_tx_packet(STATUS, 0, config.address[0]);
+	}
+
+	static void send_query_packet(uint8_t dest, uint8_t reg_addr) {
+		send_tx_packet(QUERY, dest, reg_addr);
+	}
+
+	static void send_command_packet(uint8_t dest, uint8_t reg_addr) {
+		send_tx_packet(COMMAND, dest, reg_addr);
 	}
 
 	static void init(void) {
@@ -222,81 +255,97 @@ struct SWAP_MOTE_T {
 		RADIO::set_rx_addr(config.address);
 	}
 
-	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
-	static bool handle_radio(void) {
-		uint8_t pipe;
-		bool got_packet = false;
-
-		if (RADIO::template rx_buffer<RX_TIMEOUT>((uint8_t *) &rx_packet, sizeof(rx_packet) - sizeof(rx_packet.len), &pipe) > 0) {
-			got_packet = true;
-			if (address_match()) {
-				switch (rx_packet.function) {
-					case STATUS: handle_status(); break;
-					case QUERY: handle_query(); break;
-					case COMMAND: handle_command(); break;
-				}
-			}
-		}
-		return got_packet;
+	static bool handle_status(void) {
+		return false;
 	}
 
-	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
-	static void announce(void) {
-		RADIO::start_tx();
-		PRODUCT_CODE_REGISTER::write(tx_packet); send_tx_packet();
-		state = SYNC;
-		SYSTEM_STATE_REGISTER::write(tx_packet); send_tx_packet();
+	template<typename RX_TIMEOUT = TIMEOUT_NEVER, STATUS_CALLBACK handle_status_callback = SWAP_MOTE_T::handle_status>
+	static void handle_radio(void) {
+		uint8_t len;
+		bool send_status = false;
+		uint8_t pipe;
+
 		RADIO::start_rx();
-		handle_radio<RX_TIMEOUT>();
+		rx_packet.len = RADIO::template rx_buffer<RX_TIMEOUT>((uint8_t *) &rx_packet, sizeof(rx_packet) - sizeof(rx_packet.len), &pipe);
+		if (rx_packet.len > 0) {
+			switch (rx_packet.function) {
+				case STATUS: send_status = handle_status_callback(); break;
+				case QUERY: send_status = handle_query(); break;
+				case COMMAND: send_status = handle_command(); break;
+			}
+			if (send_status) {
+				RADIO::start_tx();
+				send_status_packet();
+			}
+		}
+	}
+
+	template<typename RX_TIMEOUT>
+	static void sync(void) {
+		RADIO::start_tx();
+		state = SYNC;
+		SYSTEM_STATE_REGISTER::write(tx_packet); send_status_packet();
+		while (!RX_TIMEOUT::triggered()) {
+			handle_radio<RX_TIMEOUT>();
+		}
+		RX_TIMEOUT::disable();
+	}
+
+	static void rx_off(void) {
 		state = RXOFF;
 		RADIO::start_tx();
-		SYSTEM_STATE_REGISTER::write(tx_packet); send_tx_packet();
+		SYSTEM_STATE_REGISTER::write(tx_packet); send_status_packet();
 		RADIO::power_down();
 	};
 
-	static void handle_status(void) {
+	template<typename RX_TIMEOUT>
+	static void announce(void) {
+		RADIO::start_tx();
+		PRODUCT_CODE_REGISTER::write(tx_packet); send_status_packet();
+		sync<RX_TIMEOUT>();
+		rx_off();
 	};
 
-	static void handle_query(void) {
+	static bool handle_query(void) {
+		bool r = false;
 		if (address_match()) {
-			if (SYSTEM_STATE_REGISTER::handle_query(rx_packet) &&
-					SYSTEM_STATE_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (CHANNEL_REGISTER::handle_query(rx_packet) &&
-					CHANNEL_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (DEVICE_ADDR_REGISTER::handle_query(rx_packet) &&
-					DEVICE_ADDR_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (TX_INTERVAL_REGISTER::handle_query(rx_packet) &&
-					TX_INTERVAL_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (REGISTER1::handle_query(rx_packet) && REGISTER1::write(tx_packet)) send_tx_packet();
-			else if (REGISTER2::handle_query(rx_packet) && REGISTER2::write(tx_packet)) send_tx_packet();
-			else if (REGISTER3::handle_query(rx_packet) && REGISTER3::write(tx_packet)) send_tx_packet();
-			else if (REGISTER4::handle_query(rx_packet) && REGISTER4::write(tx_packet)) send_tx_packet();
-			else if (REGISTER5::handle_query(rx_packet) && REGISTER5::write(tx_packet)) send_tx_packet();
-			else if (REGISTER6::handle_query(rx_packet) && REGISTER6::write(tx_packet)) send_tx_packet();
-			else if (REGISTER7::handle_query(rx_packet) && REGISTER7::write(tx_packet)) send_tx_packet();
-			else if (REGISTER8::handle_query(rx_packet) && REGISTER8::write(tx_packet)) send_tx_packet();
+			if (SYSTEM_STATE_REGISTER::handle_query(rx_packet) && SYSTEM_STATE_REGISTER::write(tx_packet) ||
+				CHANNEL_REGISTER::handle_query(rx_packet) && CHANNEL_REGISTER::write(tx_packet) ||
+				DEVICE_ADDR_REGISTER::handle_query(rx_packet) && DEVICE_ADDR_REGISTER::write(tx_packet) ||
+				TX_INTERVAL_REGISTER::handle_query(rx_packet) && TX_INTERVAL_REGISTER::write(tx_packet) ||
+				REGISTER1::handle_query(rx_packet) && REGISTER1::write(tx_packet) ||
+				REGISTER2::handle_query(rx_packet) && REGISTER2::write(tx_packet) ||
+				REGISTER3::handle_query(rx_packet) && REGISTER3::write(tx_packet) ||
+				REGISTER4::handle_query(rx_packet) && REGISTER4::write(tx_packet) ||
+				REGISTER5::handle_query(rx_packet) && REGISTER5::write(tx_packet) ||
+				REGISTER6::handle_query(rx_packet) && REGISTER6::write(tx_packet) ||
+				REGISTER7::handle_query(rx_packet) && REGISTER7::write(tx_packet) ||
+				REGISTER8::handle_query(rx_packet) && REGISTER8::write(tx_packet)) {
+				r = true;
+			}
 		}
+		return r;
 	};
 
 	static bool handle_command(void) {
+		bool r = false;
 		if (address_match()) {
-			if (SYSTEM_STATE_REGISTER::handle_command(rx_packet) &&
-					SYSTEM_STATE_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (CHANNEL_REGISTER::handle_command(rx_packet) &&
-					CHANNEL_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (DEVICE_ADDR_REGISTER::handle_command(rx_packet) &&
-					DEVICE_ADDR_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (TX_INTERVAL_REGISTER::handle_command(rx_packet) &&
-					TX_INTERVAL_REGISTER::write(tx_packet)) send_tx_packet();
-			else if (REGISTER1::handle_command(rx_packet) && REGISTER1::write(tx_packet)) send_tx_packet();
-			else if (REGISTER2::handle_command(rx_packet) && REGISTER2::write(tx_packet)) send_tx_packet();
-			else if (REGISTER3::handle_command(rx_packet) && REGISTER3::write(tx_packet)) send_tx_packet();
-			else if (REGISTER4::handle_command(rx_packet) && REGISTER4::write(tx_packet)) send_tx_packet();
-			else if (REGISTER5::handle_command(rx_packet) && REGISTER5::write(tx_packet)) send_tx_packet();
-			else if (REGISTER6::handle_command(rx_packet) && REGISTER6::write(tx_packet)) send_tx_packet();
-			else if (REGISTER7::handle_command(rx_packet) && REGISTER7::write(tx_packet)) send_tx_packet();
-			else if (REGISTER8::handle_command(rx_packet) && REGISTER8::write(tx_packet)) send_tx_packet();
+			if (SYSTEM_STATE_REGISTER::handle_command(rx_packet) && SYSTEM_STATE_REGISTER::write(tx_packet) ||
+				CHANNEL_REGISTER::handle_command(rx_packet) && CHANNEL_REGISTER::write(tx_packet) ||
+				DEVICE_ADDR_REGISTER::handle_command(rx_packet) && DEVICE_ADDR_REGISTER::write(tx_packet) ||
+				TX_INTERVAL_REGISTER::handle_command(rx_packet) && TX_INTERVAL_REGISTER::write(tx_packet) ||
+				REGISTER1::handle_command(rx_packet) && REGISTER1::write(tx_packet) ||
+				REGISTER2::handle_command(rx_packet) && REGISTER2::write(tx_packet) ||
+				REGISTER3::handle_command(rx_packet) && REGISTER3::write(tx_packet) ||
+				REGISTER4::handle_command(rx_packet) && REGISTER4::write(tx_packet) ||
+				REGISTER5::handle_command(rx_packet) && REGISTER5::write(tx_packet) ||
+				REGISTER6::handle_command(rx_packet) && REGISTER6::write(tx_packet) ||
+				REGISTER7::handle_command(rx_packet) && REGISTER7::write(tx_packet) ||
+				REGISTER8::handle_command(rx_packet) && REGISTER8::write(tx_packet)) {
+				r = true;
+			}
 		}
+		return r;
 	};
 
 	static void update_registers(void) {
@@ -312,53 +361,54 @@ struct SWAP_MOTE_T {
 
 	static void transmit_data(void) {
 		RADIO::start_tx();
-		if (REGISTER1::write(tx_packet)) send_tx_packet();
-		if (REGISTER2::write(tx_packet)) send_tx_packet();
-		if (REGISTER3::write(tx_packet)) send_tx_packet();
-		if (REGISTER4::write(tx_packet)) send_tx_packet();
-		if (REGISTER5::write(tx_packet)) send_tx_packet();
-		if (REGISTER6::write(tx_packet)) send_tx_packet();
-		if (REGISTER7::write(tx_packet)) send_tx_packet();
-		if (REGISTER8::write(tx_packet)) send_tx_packet();
+		if (REGISTER1::write(tx_packet)) send_status_packet();
+		if (REGISTER2::write(tx_packet)) send_status_packet();
+		if (REGISTER3::write(tx_packet)) send_status_packet();
+		if (REGISTER4::write(tx_packet)) send_status_packet();
+		if (REGISTER5::write(tx_packet)) send_status_packet();
+		if (REGISTER6::write(tx_packet)) send_status_packet();
+		if (REGISTER7::write(tx_packet)) send_status_packet();
+		if (REGISTER8::write(tx_packet)) send_status_packet();
 		RADIO::power_down();
 	};
 
+	template<typename SLEEP_TIMEOUT>
 	static void sleep(void) {
-		TIMEOUT::set_and_wait((uint32_t) config.tx_interval * (uint32_t) 1000);
+		SLEEP_TIMEOUT::set_and_wait((uint32_t) config.tx_interval * (uint32_t) 1000);
 	};
 
+	template<typename SLEEP_TIMEOUT>
 	static void run(void) {
-		announce();
 		while (1) {
 			update_registers();
 			transmit_data();
-			sleep();
+			sleep<SLEEP_TIMEOUT>();
 		}
 	}
 };
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
-	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename RADIO, const uint8_t DEFAULT_CHANNEL,
 	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-SWAP_PACKET SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
+SWAP_PACKET SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4, REGISTER5, REGISTER6, REGISTER7, REGISTER8>::tx_packet;
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
-	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename RADIO, const uint8_t DEFAULT_CHANNEL,
 	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-SWAP_PACKET SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
+SWAP_PACKET SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4, REGISTER5, REGISTER6, REGISTER7, REGISTER8>::rx_packet;
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
-	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename RADIO, const uint8_t DEFAULT_CHANNEL,
 	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-CONFIGURATION_DATA SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
+CONFIGURATION_DATA SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4,
 	    REGISTER5, REGISTER6, REGISTER7, REGISTER8>::config __attribute__((section(".infod"))) = {
 	SWAP_CONFIG_DATA,
@@ -369,20 +419,20 @@ CONFIGURATION_DATA SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FI
 };
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
-	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename RADIO, const uint8_t DEFAULT_CHANNEL,
 	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-const uint8_t SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
+const uint8_t SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4,
 	    REGISTER5, REGISTER6, REGISTER7, REGISTER8>::BROADCAST_ADDR[5] = {0x00, 0xf0, 0xf0, 0xf0, 0xf0};
 
 template<const uint32_t MANUFACTURER_ID, const uint32_t PRODUCT_ID, const uint32_t HARDWARE_VERSION, const uint32_t FIRMWARE_VERSION,
-	typename RADIO, const uint8_t DEFAULT_CHANNEL, typename TIMEOUT,
+	typename RADIO, const uint8_t DEFAULT_CHANNEL,
 	typename CONFIG_STORAGE,
 	typename REGISTER1, typename REGISTER2, typename REGISTER3, typename REGISTER4,
 	typename REGISTER5, typename REGISTER6, typename REGISTER7, typename REGISTER8>
-uint8_t SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, TIMEOUT, CONFIG_STORAGE,
+uint8_t SWAP_MOTE_T<MANUFACTURER_ID, PRODUCT_ID, HARDWARE_VERSION, FIRMWARE_VERSION, RADIO, DEFAULT_CHANNEL, CONFIG_STORAGE,
 	    REGISTER1, REGISTER2, REGISTER3, REGISTER4, REGISTER5, REGISTER6, REGISTER7, REGISTER8>::state;
 
 #endif
