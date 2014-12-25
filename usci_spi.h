@@ -81,8 +81,12 @@ struct USCI_SPI_T {
 
 		if (USCI::tx_irq_pending()) {
 			if (tx_count > 0) {
-				*USCI::TXBUF = *tx_buffer;
-				tx_buffer++;
+				if (tx_buffer) {
+					*USCI::TXBUF = *tx_buffer;
+					tx_buffer++;
+				} else {
+					*USCI::TXBUF = 0xff;
+				}
 				tx_count--;
 			} else {
 				USCI::disable_tx_irq();
