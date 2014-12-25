@@ -107,7 +107,7 @@
 #define RF24_NOP           0xFF
 
 static constexpr uint8_t nrf24_init_values[][2] = {
-	{RF24_W_REGISTER + RF24_CONFIG, 0x00},
+	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC},
 	{RF24_W_REGISTER + RF24_EN_AA, RF24_ENAA_P0 + RF24_ENAA_P1 + RF24_ENAA_P2 + RF24_ENAA_P3 + RF24_ENAA_P4},
 	{RF24_W_REGISTER + RF24_SETUP_AW, 0x03},
 	{RF24_W_REGISTER + RF24_SETUP_RETR, 0x3},
@@ -120,16 +120,16 @@ static constexpr uint8_t nrf24_init_values[][2] = {
 	{RF24_W_REGISTER + RF24_RX_PW_P5, 0},
 	{RF24_W_REGISTER + RF24_RF_SETUP, RF24_RF_DR_LOW + RF24_RF_0DBM},
 	{RF24_W_REGISTER + RF24_DYNPD, RF24_DPL_P0 + RF24_DPL_P1 + RF24_DPL_P2 + RF24_DPL_P3 + RF24_DPL_P4},
-	{RF24_W_REGISTER + RF24_FEATURE, RF24_EN_DPL + RF24_EN_ACK_PAY + RF24_EN_DYN_ACK},
-	{RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC}
+	{RF24_W_REGISTER + RF24_FEATURE, RF24_EN_DPL + RF24_EN_ACK_PAY + RF24_EN_DYN_ACK}
 };
 
 template<typename SPI,
 	typename CSN,
 	typename CE,
-	typename IRQ>
+	typename IRQ,
+	typename DELAY_TIMER>
 struct NRF24_T {
-	static uint8_t rw_reg_buffer[2];
+	static uint8_t last_status;
 
 	static void init(void) {
 		for (int i = 0; i < ARRAY_COUNT(nrf24_init_values); i++) {
@@ -156,14 +156,18 @@ struct NRF24_T {
 	}
 
 	static void tx_buffer(const uint8_t tx_addr[5], const uint8_t *data, const uint8_t len, bool auto_ack) {
+		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(RF24_W_REGISTER + RF24_TX_ADDR, tx_addr, RF24_ADDR_WIDTH);
 		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P0, tx_addr, RF24_ADDR_WIDTH);
-		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(auto_ack ? RF24_W_TX_PAYLOAD : RF24_W_TX_PAYLOAD_NOACK, data, len);
 		CE::set_high();
-		__delay_cycles(500);
+		DELAY_TIMER::set_and_wait_us(20);
 		CE::set_low();
-		while (IRQ::is_high());
+		if (!IRQ::is_unused()) {
+			IRQ::wait_for_irq();
+		} else {
+			while (!(rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) & RF24_TX_DS));
+		}
 		rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_TX_DS | RF24_MAX_RT);
 	}
 
@@ -174,33 +178,52 @@ struct NRF24_T {
 		do {
 			if (!(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY)) {
 				n = rw_reg(RF24_R_RX_PL_WID, RF24_NOP);
-				rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
 			} else {
-				IRQ::clear_irq();
-				while (!IRQ::irq_raised() && !RX_TIMEOUT::triggered()) {
-					enter_idle();
+				if (!IRQ::is_unused()) {
+					IRQ::clear_irq();
+					while (!IRQ::irq_raised() && !RX_TIMEOUT::triggered()) {
+						enter_idle();
+					}
+				} else {
+					while (!(rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) & RF24_RX_DR));
 				}
+				rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
 			}
 		} while (n == 0 && !RX_TIMEOUT::triggered());
 		if (n > 0) {
 			if (n > max_len) n = max_len;
 			if (pipe != 0) {
-				*pipe = rw_reg_buffer[0];
+				*pipe = (last_status & 0b00001110) >> 1;
 			}
 			read_reg(RF24_R_RX_PAYLOAD, data, n);
 		}
 		return n;
 	}
 
-	static void start_tx(void) {
-		CE::set_low();
-		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP);
+	static void start_rx(void) {
+		uint8_t config = rw_reg(RF24_R_REGISTER + RF24_CONFIG, RF24_NOP);
+		if (config != RF24_PWR_UP + RF24_EN_CRC + RF24_PRIM_RX) {
+			rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
+			if (!(config & RF24_PWR_UP)) {
+				DELAY_TIMER::set_and_wait(5);
+			} else if (!(config & RF24_PRIM_RX)) {
+				DELAY_TIMER::set_and_wait(20);
+			}
+		}
+		CE::set_high();
 	}
 
-	static void start_rx(void) {
-		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP + RF24_PRIM_RX);
-		__delay_cycles(500);
-		CE::set_high();
+	static void start_tx(void) {
+		uint8_t config = rw_reg(RF24_R_REGISTER + RF24_CONFIG, RF24_NOP);
+		CE::set_low();
+		if (config != RF24_PWR_UP + RF24_EN_CRC) {
+			rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC + RF24_PWR_UP);
+			if (!(config & RF24_PWR_UP)) {
+				DELAY_TIMER::set_and_wait(5);
+			} else if (config & RF24_PRIM_RX) {
+				DELAY_TIMER::set_and_wait(20);
+			}
+		}
 	}
 
 	static void power_down(void) {
@@ -210,18 +233,26 @@ struct NRF24_T {
 
 	static uint8_t rw_reg(uint8_t reg, uint8_t value)
 	{
+#if 0
 		rw_reg_buffer[0] = reg; rw_reg_buffer[1] = value;
 		CSN::set_low();
 		SPI::transfer(rw_reg_buffer, 2, rw_reg_buffer);
 		CSN::set_high();
 		return rw_reg_buffer[1];
+#endif
+		uint8_t r;
+		CSN::set_low();
+		last_status = SPI::transfer(reg);
+		r = SPI::transfer(value);
+		CSN::set_high();
+		return r;
 	}
 
 	static void spi_transfer_buffer(uint8_t reg, int dir, uint8_t *data, int len)
 	{
 		CSN::set_low();
-		SPI::transfer(reg);
-		SPI::transfer(data, len, dir ? 0 : data);
+		last_status = SPI::transfer(reg);
+		SPI::transfer(dir ? data : 0, len, dir ? 0 : data);
 		CSN::set_high();
 	}
 
@@ -254,7 +285,7 @@ struct NRF24_T {
 	}
 };
 
-template<typename SPI, typename CSN, typename CE, typename IRQ>
-uint8_t NRF24_T<SPI, CSN, CE, IRQ>::rw_reg_buffer[2];
+template<typename SPI, typename CSN, typename CE, typename IRQ, typename DELAY_TIMER>
+uint8_t NRF24_T<SPI, CSN, CE, IRQ, DELAY_TIMER>::last_status;
 
 #endif
