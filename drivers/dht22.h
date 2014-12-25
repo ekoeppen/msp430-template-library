@@ -43,7 +43,7 @@ int read_dht(int *temperature, unsigned int *humidity)
 	if(((p[1] + p[2] + p[3] + p[4]) & 0xFF) != p[5]) return -5; // Bad checksum
 
 	*temperature = (p[3] << 8) + p[4];
-	// if (p[3] & 0x80) *temperature = *temperature * -1;
+	if (p[3] & 0x80) *temperature = (*temperature & 0x7fff) * -1;
 	*humidity = (p[1] << 8) + p[2];
 
 	DATA_PIN::set_output();                                          // Output
