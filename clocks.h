@@ -19,35 +19,76 @@ uint8_t LFXT1CLK_usage_count;
 uint8_t DCOCLK_usage_count;
 
 inline void enter_idle(void) {
-	__bis_SR_register(GIE + CPUOFF
-			+
-			(VLOCLK_usage_count == 0 && LFXT1CLK_usage_count == 0 && DCOCLK_usage_count == 0 ? OSCOFF : 0) +
-			(DCOCLK_usage_count == 0 ? SCG0 + SCG1 : 0));
+	__bis_SR_register(GIE + CPUOFF +
+		(VLOCLK_usage_count == 0 && LFXT1CLK_usage_count == 0 && DCOCLK_usage_count == 0 ? OSCOFF : 0) +
+		(DCOCLK_usage_count == 0 ? SCG0 + SCG1 : 0));
 }
 
 inline void exit_idle(void) {
 	__bic_SR_register_on_exit(LPM4_bits);
 }
 
-template<const uint16_t FREQUENCY = 12000>
+void delay_ms(uint8_t milliseconds) {
+	uint8_t m;
+	switch (BCSCTL1 & 0b00001111) {
+		case 6: m = 1; break;
+		case 13: m = 8; break;
+		case 14: m = 12; break;
+		default: m = 16; break;
+	}
+	while (milliseconds--) {
+		for (int i = 0; i < m; i++) __delay_cycles(1000);
+	}
+}
+
+void delay_us(int16_t microseconds) {
+	switch (BCSCTL1 & 0b00001111) {
+		case 6: while (microseconds--) __delay_cycles(1); break;
+		case 13: while (microseconds--) __delay_cycles(8); break;
+		case 14: while (microseconds--) __delay_cycles(12); break;
+		default: while (microseconds--) __delay_cycles(16); break;
+	}
+}
+
+template<const uint16_t FREQUENCY = 12000, const bool DEBUG_RELEASE = false>
 struct VLOCLK_T {
 	static constexpr CLOCK_SOURCE_TYPE type = CLOCK_SOURCE_TYPE_VLO;
 	static constexpr uint16_t frequency = FREQUENCY;
 	static void claim(void) { VLOCLK_usage_count++; }
-	static void release(void) { VLOCLK_usage_count--; }
+	static void release(void) {
+		if (!DEBUG_RELEASE || VLOCLK_usage_count > 0) {
+			VLOCLK_usage_count--;
+		} else {
+			while (1);
+		}
+	}
 };
 
 
-template<const uint16_t FREQUENCY = 32768>
+template<const uint8_t CAPS, const uint16_t FREQUENCY = 32768, const bool DEBUG_RELEASE = false>
 struct LFXT1CLK_T {
 	static constexpr CLOCK_SOURCE_TYPE type = CLOCK_SOURCE_TYPE_LFXT1;
 	static constexpr uint16_t frequency = FREQUENCY;
+
+	static void init(void) {
+		__bis_SR_register(OSCOFF);
+		BCSCTL3 |= CAPS;
+		__bic_SR_register(OSCOFF);
+		while (IFG1 & OFIFG) IFG1 &= ~OFIFG;
+	}
+
 	static void claim(void) { LFXT1CLK_usage_count++; }
-	static void release(void) { LFXT1CLK_usage_count--; }
+	static void release(void) {
+		if (!DEBUG_RELEASE || LFXT1CLK_usage_count > 0) {
+			LFXT1CLK_usage_count--;
+		} else {
+			while (1);
+		}
+	}
 };
 
 
-template<const uint32_t FREQUENCY = 1000000>
+template<const uint32_t FREQUENCY = 1000000, const bool DEBUG_RELEASE = false>
 struct DCOCLK_T {
 	static constexpr CLOCK_SOURCE_TYPE type = CLOCK_SOURCE_TYPE_DCO;
 	static constexpr uint32_t frequency = FREQUENCY;
@@ -75,7 +116,13 @@ struct DCOCLK_T {
 		}
 	}
 	static void claim(void) { DCOCLK_usage_count++; }
-	static void release(void) { DCOCLK_usage_count--; }
+	static void release(void) {
+		if (!DEBUG_RELEASE || DCOCLK_usage_count > 0) {
+			DCOCLK_usage_count--;
+		} else {
+			while (1);
+		}
+	}
 };
 
 template<typename SOURCE,
@@ -110,6 +157,19 @@ struct SMCLK_T {
 
 	static void claim(void) { SOURCE::claim(); }
 	static void release(void) { SOURCE::release(); }
+
+	static void set_and_wait_us(uint8_t microseconds) {
+		while (microseconds--) {
+			__delay_cycles(frequency / 1000000);
+		}
+	}
+
+	static void set_and_wait(uint8_t milliseconds) {
+		while (milliseconds--) {
+			__delay_cycles(frequency / 1000);
+		}
+	}
+
 };
 
 template<typename SOURCE,
@@ -128,6 +188,18 @@ struct MCLK_T {
 				break;
 		}
 	};
+
+	static void set_and_wait_us(uint8_t microseconds) {
+		while (microseconds--) {
+			__delay_cycles(frequency / 1000000);
+		}
+	}
+
+	static void set_and_wait(uint8_t milliseconds) {
+		while (milliseconds--) {
+			__delay_cycles(frequency / 1000);
+		}
+	}
 
 	static void claim(void) { SOURCE::claim(); }
 	static void release(void) { SOURCE::release(); }
