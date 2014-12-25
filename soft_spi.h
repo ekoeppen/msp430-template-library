@@ -66,7 +66,7 @@ struct SOFT_SPI_T {
 		uint8_t rx;
 
 		while (count-- > 0) {
-			rx = transfer(*tx_data++);
+			rx = transfer(tx_data ? *tx_data++ : 0xff);
 			if (rx_data) *rx_data++ = rx;
 		}
 	}
