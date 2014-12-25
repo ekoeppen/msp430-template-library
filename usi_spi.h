@@ -17,23 +17,24 @@ struct USI_SPI_T {
 	static uint8_t *rx_buffer;
 	static uint8_t *tx_buffer;
 
-	static void init(void) {
-		USICTL0 |= USISWRST;
-		if (MODE == 0 || MODE == 1) USICTL1 = USICKPH;
-		USICKCTL = USISSEL_2 | USIDIV_0 | (MODE == 1 || MODE == 3 ? USICKPL : 0);
-		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
-		USICNT = 8;
-		USISRL = 0;
-		enable_irq();
+	static constexpr uint8_t calculate_divider(uint8_t divider) {
+		return divider < 8 ? (CLOCK::frequency / (1 << divider) <= FREQUENCY ? divider : calculate_divider(divider + 1)) : 7;
 	}
 
 	static void enable(void) {
+		constexpr uint8_t divider = calculate_divider(0);
 		USICTL0 |= USISWRST;
 		if (MODE == 0 || MODE == 1) USICTL1 = USICKPH;
-		USICKCTL = USISSEL_2 | USIDIV_0 | (MODE == 1 || MODE == 3 ? USICKPL : 0);
+		USICKCTL = USISSEL_2 | (divider << 5) | (MODE == 1 || MODE == 3 ? USICKPL : 0);
 		USICTL0 = USIPE7 | USIPE6 | USIPE5 | USIMST | USIOE;
-		USICNT = 8;
 		USISRL = 0;
+		USICNT = 8;
+		while (!(USICTL1 & USIIFG));
+	}
+
+	static void init(void) {
+		enable();
+		enable_irq();
 	}
 
 	static void disable(void) {
@@ -48,16 +49,18 @@ struct USI_SPI_T {
 		USICTL1 |= USIIE;
 	}
 
+	static void disable_irq(void) {
+		USICTL1 &= ~USIIE;
+	}
+
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static uint8_t transfer(uint8_t data) {
 		CLOCK::claim();
+		disable_irq();
 		USISRL = data;
-		USICNT = DATA_LENGTH;
-		tx_count = 1;
-		rx_buffer = 0;
-		do {
-			enter_idle();
-		} while (!TIMEOUT::triggered() && tx_count > 0);
+		USICNT = 8;
+		while (!(USICTL1 & USIIFG));
+		clear_irq();
 		CLOCK::release();
 		return USISRL;
 	}
@@ -65,33 +68,41 @@ struct USI_SPI_T {
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(uint8_t *tx_data, int count, uint8_t *rx_data = 0) {
 		CLOCK::claim();
-		tx_buffer = tx_data + 1;
+		tx_buffer = tx_data;
 		tx_count = count;
 		rx_buffer = rx_data;
-		rx_count = 0;
-		USISRL = *tx_data;
-		USICNT = DATA_LENGTH;
-		do {
+		rx_count = -1;
+		enable_irq();
+		USICTL1 |= USIIFG;
+		while (!TIMEOUT::triggered() && tx_count > 0) {
 			enter_idle();
-		} while (!TIMEOUT::triggered() && tx_count > 0);
+		}
 		CLOCK::release();
 	}
 
 	static bool handle_irq(void) {
 		bool resume = false;
+		uint8_t rx_data;
 
 		if (USICTL1 & USIIFG) {
-			if (rx_buffer) {
-				*rx_buffer++ = USISRL;
-				rx_count++;
-			}
-			tx_count--;
+			rx_data = USISRL;
 			if (tx_count > 0) {
-				USISRL = *tx_buffer++;
+				if (tx_buffer) {
+					USISRL = *tx_buffer++;
+				} else {
+					USISRL = 0xff;
+				}
+				tx_count--;
 				USICNT = DATA_LENGTH;
 			} else {
 				clear_irq();
 				resume = true;
+			}
+			if (rx_buffer) {
+				if (rx_count >= 0) {
+					*rx_buffer++ = rx_data;
+				}
+				rx_count++;
 			}
 		}
 		return resume;
