@@ -103,6 +103,7 @@ struct GPIO_PIN_T {
 	static constexpr uint8_t resistor_enable = (RESISTOR ? bit_value : 0);
 	static constexpr uint8_t initial_level = (INITIAL_LEVEL ? bit_value : 0);
 	static constexpr uint8_t adc_input = (PORT == 1 ? bit_value : 0);
+	static constexpr bool is_unused(void) { return false; }
 
 	static void init(void) {
 		if (INITIAL_LEVEL) *PxOUT |= bit_value;
@@ -165,7 +166,7 @@ struct GPIO_PIN_T {
 	}
 
 	static void wait_for_irq(void) {
-		*PxIFGS &= ~bit_value;
+		clear_irq();
 		while (!(*PxIFGS & bit_value)) {
 			enter_idle();
 		}
@@ -236,6 +237,15 @@ struct PIN_UNUSED {
 	static constexpr uint8_t resistor_enable = 0;
 	static constexpr uint8_t initial_level = 0;
 	static constexpr uint8_t adc_input = 0;
+	static constexpr uint8_t pin_value = 0;
+	static constexpr bool is_unused(void) { return true; }
+	static constexpr bool is_high(void) { return false; }
+	static constexpr bool is_low(void) { return true; }
+	static void toggle(void) { }
+	static void set_high(void) { }
+	static void set_low(void) { }
+	static void clear_irq(void) { }
+	static constexpr bool irq_raised(void) { return false; }
 };
 
 template<const int PORT,
