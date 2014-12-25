@@ -14,8 +14,9 @@
 
 typedef VLOCLK_T<12500> VLO;
 typedef DCOCLK_T<1000000> DCO;
+typedef LFXT1CLK_T<XCAP_3> LFXT1;
 
-typedef ACLK_T<VLO> ACLK;
+typedef ACLK_T<LFXT1> ACLK;
 typedef SMCLK_T<DCO> SMCLK;
 typedef MCLK_T<DCO> MCLK;
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
@@ -27,7 +28,7 @@ typedef USCI_UART_T<USCI_A, 0, SMCLK> UART;
 #else
 typedef GPIO_INPUT_T<1, 1> RX;
 typedef GPIO_OUTPUT_T<1, 2, HIGH> TX;
-typedef TIMER_T<TIMER_A, 0, SMCLK, TASSEL_2 + MC_2> TIMER;
+typedef TIMER_T<TIMER_A, 0, SMCLK, TIMER_MODE_CONTINUOUS> TIMER;
 typedef SOFT_UART_T<TIMER, TX, RX> UART;
 #endif
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
@@ -41,8 +42,8 @@ int main(void)
 {
 	char c;
 
-
 	DCO::init();
+	LFXT1::init();
 
 	MCLK::init();
 	SMCLK::init();
@@ -67,10 +68,10 @@ int main(void)
 		printf<UART>("Key pressed = %c (code %d, hex %x, error %d)\n", c, c, c, UART::status.framing_error);
 #else
 		LED_RED::set_high();
-		UART::transfer<TIMEOUT_IMMEDIATELY>((uint8_t *) "0123456789", 10);
+		UART::transfer<TIMEOUT_IMMEDIATELY>((uint8_t *) "0123456789\n", 11);
 		LED_RED::set_low();
 		UART::disable();
-		TIMEOUT::set_and_wait(1000);
+		TIMEOUT::set_and_wait(2000);
 		UART::enable();
 #endif
 	}
