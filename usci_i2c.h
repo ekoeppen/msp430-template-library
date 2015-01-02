@@ -6,6 +6,11 @@
 #include <tasks.h>
 #include <usci.h>
 
+struct USCI_I2C_FLAGS {
+	bool restart: 1;
+	bool busy: 1;
+};
+
 template<const USCI_MODULE MODULE,
 	const int INSTANCE,
 	typename CLOCK,
@@ -16,6 +21,7 @@ struct USCI_I2C_T {
 
 	volatile static int rx_tx_count;
 	static uint8_t *rx_tx_buffer;
+	static USCI_I2C_FLAGS flags;
 
 	static void init(void) {
 		*USCI::CTL1 |= UCSWRST;
@@ -28,7 +34,6 @@ struct USCI_I2C_T {
 			*USCI::CTL1 = UCSSEL_2;
 		}
 		rx_tx_count = 0;
-		USCI::enable_rx_tx_irq();
 	}
 
 	static void enable(void) {
@@ -46,8 +51,9 @@ struct USCI_I2C_T {
 		while (*USCI::CTL1 & UCTXSTP);
 	}
 
+#ifdef I2C_POLLING
 	template<typename TIMEOUT = TIMEOUT_NEVER>
-	static void send(const uint8_t *data, int length, bool stop) {
+	static void write(const uint8_t *data, int length, bool restart = false) {
 		CLOCK::claim();
 		*USCI::CTL1 |= UCTR | UCTXSTT;
 		while (length--) {
@@ -55,14 +61,14 @@ struct USCI_I2C_T {
 			*USCI::TXBUF = *data++;
 		}
 		while (!USCI::tx_irq_pending());
-		if (stop) {
+		if (!restart) {
 			*USCI::CTL1 |= UCTXSTP;
 		}
 		CLOCK::release();
 	}
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
-	static void receive(uint8_t *data, int length) {
+	static void read(uint8_t *data, uint16_t length) {
 		CLOCK::claim();
 		*USCI::CTL1 &= ~UCTR;
 		*USCI::CTL1 |= UCTXSTT;
@@ -77,27 +83,120 @@ struct USCI_I2C_T {
 		while (*USCI::STAT & UCBBUSY);
 		CLOCK::release();
 	}
-
+#else
 	template<typename TIMEOUT = TIMEOUT_NEVER>
-	static void transfer(const uint8_t *data, int length, bool write) {
-		CLOCK::claim();
-		if (write) {
-			*USCI::CTL1 |= UCTR;
-		} else {
-			*USCI::CTL1 &= ~UCTR;
-		}
-		rx_tx_buffer = const_cast<uint8_t *>(data);
-		rx_tx_count = length;
-		*USCI::CTL1 |= UCTXSTT;
-		if (!write && length == 1) {
-			while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
-			*USCI::CTL1 |= UCTXSTP;
-		}
-
+	static void rx_tx_loop(void) {
+		USCI::enable_rx_tx_irq();
 		while (!TIMEOUT::triggered() && rx_tx_count > 0) {
 			enter_idle();
 		}
+		USCI::disable_rx_tx_irq();
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void write(const uint8_t *data, int length, bool restart = false) {
+		CLOCK::claim();
+		flags.restart = restart;
+		rx_tx_buffer = const_cast<uint8_t *>(data + 1);
+		rx_tx_count = length - 1;
+
+		*USCI::CTL1 |= UCTR | UCTXSTT;
+		while (!USCI::tx_irq_pending());
+		*USCI::TXBUF = *data;
+		while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
+
+		rx_tx_loop<TIMEOUT>();
+		CLOCK::release();
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void read(uint8_t *data, uint16_t length) {
+		CLOCK::claim();
+		rx_tx_buffer = data;
+		rx_tx_count = length;
+
+		*USCI::CTL1 &= ~UCTR;
+		*USCI::CTL1 |= UCTXSTT;
+		while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
+		if (length == 1) {
+			*USCI::CTL1 |= UCTXSTP;
+		}
+
+		rx_tx_loop<TIMEOUT>();
+		CLOCK::release();
+	}
+#endif
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void write_reg(const uint8_t reg, const uint8_t value) {
+		CLOCK::claim();
+		*USCI::CTL1 |= UCTR | UCTXSTT;
+		while (!USCI::tx_irq_pending());
+		*USCI::TXBUF = reg;
+		while (*USCI::CTL1 & UCTXSTT);
+		while (!USCI::tx_irq_pending());
+		*USCI::TXBUF = value;
+		while (!USCI::tx_irq_pending());
+		*USCI::CTL1 |= UCTXSTP;
 		while (*USCI::STAT & UCBBUSY);
+		CLOCK::release();
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static uint8_t read_reg(const uint8_t reg) {
+		uint8_t r;
+		CLOCK::claim();
+		*USCI::CTL1 |= UCTR | UCTXSTT;
+		while (!USCI::tx_irq_pending());
+		*USCI::TXBUF = reg;
+		while (*USCI::CTL1 & UCTXSTT);
+		*USCI::CTL1 &= ~UCTR;
+		*USCI::CTL1 |= UCTXSTT;
+		while (*USCI::CTL1 & UCTXSTT);
+		*USCI::CTL1 |= UCTXSTP;
+		while (!USCI::rx_irq_pending());
+		r = *USCI::RXBUF;
+		while (*USCI::STAT & UCBBUSY);
+		CLOCK::release();
+		return r;
+	}
+
+	static void read_reg(const uint8_t reg, uint8_t *data, uint16_t length) {
+		CLOCK::claim();
+		*USCI::CTL1 |= UCTR | UCTXSTT;
+		while (!USCI::tx_irq_pending());
+		*USCI::TXBUF = reg;
+		while (*USCI::CTL1 & UCTXSTT);
+		read(data, length);
+		CLOCK::release();
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void transfer(const uint8_t *data, int length, bool write, bool restart = false) {
+		CLOCK::claim();
+		flags.restart = restart;
+		rx_tx_buffer = const_cast<uint8_t *>(data);
+		rx_tx_count = length;
+		if (write) {
+			*USCI::CTL1 |= UCTR | UCTXSTT;
+			while (!USCI::tx_irq_pending());
+			*USCI::TXBUF = *rx_tx_buffer++;
+			rx_tx_count--;
+			while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
+		} else {
+			*USCI::CTL1 &= ~UCTR;
+			*USCI::CTL1 |= UCTXSTT;
+			if (length == 1) {
+				while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
+				*USCI::CTL1 |= UCTXSTP;
+			}
+		}
+
+		USCI::enable_rx_tx_irq();
+		while (!TIMEOUT::triggered() && rx_tx_count > 0) {
+			enter_idle();
+		}
+		USCI::disable_rx_tx_irq();
 		CLOCK::release();
 	}
 
@@ -119,7 +218,9 @@ struct USCI_I2C_T {
 				*USCI::TXBUF = *rx_tx_buffer++;
 				rx_tx_count--;
 			} else {
-				*USCI::CTL1 |= UCTXSTP;
+				if (!flags.restart) {
+					*USCI::CTL1 |= UCTXSTP;
+				}
 				USCI::clear_tx_irq();
 				resume = true;
 			}
@@ -140,6 +241,9 @@ volatile int USCI_I2C_T<MODULE, INSTANCE, CLOCK, MASTER, FREQUENCY>::rx_tx_count
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const long FREQUENCY>
 uint8_t *USCI_I2C_T<MODULE, INSTANCE, CLOCK, MASTER, FREQUENCY>::rx_tx_buffer;
+
+template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const long FREQUENCY>
+USCI_I2C_FLAGS USCI_I2C_T<MODULE, INSTANCE, CLOCK, MASTER, FREQUENCY>::flags;
 
 #endif
 
