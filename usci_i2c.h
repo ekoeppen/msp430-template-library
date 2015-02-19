@@ -83,49 +83,6 @@ struct USCI_I2C_T {
 		while (*USCI::STAT & UCBBUSY);
 		CLOCK::release();
 	}
-#else
-	template<typename TIMEOUT = TIMEOUT_NEVER>
-	static void rx_tx_loop(void) {
-		USCI::enable_rx_tx_irq();
-		while (!TIMEOUT::triggered() && rx_tx_count > 0) {
-			enter_idle();
-		}
-		USCI::disable_rx_tx_irq();
-	}
-
-	template<typename TIMEOUT = TIMEOUT_NEVER>
-	static void write(const uint8_t *data, int length, bool restart = false) {
-		CLOCK::claim();
-		flags.restart = restart;
-		rx_tx_buffer = const_cast<uint8_t *>(data + 1);
-		rx_tx_count = length - 1;
-
-		*USCI::CTL1 |= UCTR | UCTXSTT;
-		while (!USCI::tx_irq_pending());
-		*USCI::TXBUF = *data;
-		while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
-
-		rx_tx_loop<TIMEOUT>();
-		CLOCK::release();
-	}
-
-	template<typename TIMEOUT = TIMEOUT_NEVER>
-	static void read(uint8_t *data, uint16_t length) {
-		CLOCK::claim();
-		rx_tx_buffer = data;
-		rx_tx_count = length;
-
-		*USCI::CTL1 &= ~UCTR;
-		*USCI::CTL1 |= UCTXSTT;
-		while (!TIMEOUT::triggered() && (*USCI::CTL1 & UCTXSTT));
-		if (length == 1) {
-			*USCI::CTL1 |= UCTXSTP;
-		}
-
-		rx_tx_loop<TIMEOUT>();
-		CLOCK::release();
-	}
-#endif
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void write_reg(const uint8_t reg, const uint8_t value) {
@@ -170,6 +127,7 @@ struct USCI_I2C_T {
 		read(data, length);
 		CLOCK::release();
 	}
+#else
 
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void transfer(const uint8_t *data, int length, bool write, bool restart = false) {
@@ -198,6 +156,37 @@ struct USCI_I2C_T {
 		}
 		USCI::disable_rx_tx_irq();
 		CLOCK::release();
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void write_reg(const uint8_t reg, const uint8_t value) {
+		uint8_t buffer[2];
+		buffer[0] = reg; buffer[1] = value;
+		transfer(buffer, sizeof(buffer), true, false);
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static uint8_t read_reg(const uint8_t reg) {
+		uint8_t buffer;
+		buffer = reg;
+		transfer(&buffer, 1, true, true);
+		transfer(&buffer, 1, false);
+		return buffer;
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void write(const uint8_t *data, int length, bool restart = false) {
+		transfer(data, length, true, restart);
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void read(uint8_t *data, uint16_t length) {
+		transfer(data, length, false, false);
+	}
+
+	static void read_reg(const uint8_t reg, uint8_t *data, uint16_t length) {
+		transfer(&reg, 1, true, true);
+		transfer(data, length, false);
 	}
 
 	static bool handle_tx_irq(void) {
@@ -234,6 +223,7 @@ struct USCI_I2C_T {
 			*USCI::STAT &= ~UCNACKIFG;
 		}
 	}
+#endif
 };
 
 template<const USCI_MODULE MODULE, const int INSTANCE, typename CLOCK, const bool MASTER, const long FREQUENCY>

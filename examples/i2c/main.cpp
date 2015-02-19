@@ -1,5 +1,7 @@
 //#define USE_SOFT_SPI
 
+#define I2C_POLLING
+
 #include <gpio.h>
 #include <clocks.h>
 #include <wdt.h>
@@ -57,7 +59,9 @@ typedef GPIO_PORT_T<1, LED, ACLK_OUT, RX, TX, CS, SCL, SDA> PORT1;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
-uint8_t buffer[1];
+uint8_t chip_id[1];
+uint8_t ctrl_meas[1];
+uint8_t out[3];
 
 int main(void)
 {
@@ -75,6 +79,7 @@ int main(void)
 #endif
 	//UART::init();
 	I2C::init();
+	I2C::set_slave_addr(0b1110111);
 	WDT::enable_irq();
 	P2OUT = 0;
 	P2DIR = BIT0 + BIT1 + BIT2 + BIT3 + BIT4;
@@ -82,15 +87,44 @@ int main(void)
 	while (1) {
 		LED::toggle();
 		CS::set_high();
-		I2C::set_slave_addr(0b1110111);
-		//I2C::send((const uint8_t *) "\xd0\x55", 2, true);
-		//I2C::send((const uint8_t *) "\xd0", 1, false);
-		//I2C::receive(buffer, sizeof(buffer));
+#if 1
+		I2C::write((const uint8_t *) "\xf4\xc0", 2, false);
+
+		I2C::write((const uint8_t *) "\xd0", 1, true);
+		I2C::read(chip_id, sizeof(chip_id));
+
+		I2C::write((const uint8_t *) "\xf4", 1, true);
+		I2C::read(ctrl_meas, sizeof(ctrl_meas));
+
+		I2C::write((const uint8_t *) "\xf6", 1, true);
+		I2C::read(out, sizeof(out));
+#endif
+#if 0
+		I2C::transfer((const uint8_t *) "\xf4\xc0", 2, true, false);
+
+		I2C::transfer((const uint8_t *) "\xd0", 1, true, true);
+		I2C::transfer(chip_id, sizeof(chip_id), false);
+
+		I2C::transfer((const uint8_t *) "\xf4", 1, true, true);
+		I2C::transfer(ctrl_meas, sizeof(ctrl_meas), false);
+
+		I2C::transfer((const uint8_t *) "\xf6", 1, true, true);
+		I2C::transfer(out, sizeof(out), false);
+#endif
+#if 0
+		I2C::write_reg(0xf4, 0xc0);
+		chip_id[0] = I2C::read_reg(0xd0);
+		ctrl_meas[0] = I2C::read_reg(0xf4);
+		I2C::read_reg(0xf6, out, sizeof(out));
+#endif
+
+		//I2C::write((const uint8_t *) "\xd0\x55", 2, false);
 		//I2C::transfer((const uint8_t *) "\xd0\x55", 2, true);
-		I2C::transfer((const uint8_t *) "\xd0", 1, true);
-		I2C::transfer(buffer, sizeof(buffer), false);
+		///I2C::transfer((const uint8_t *) "\xd0", 1, true, true);
+		//I2C::transfer(buffer, sizeof(buffer), false);
 		CS::set_low();
-		TIMEOUT::set_and_wait(1000);
+		while (1) __bis_SR_register(LPM3_bits);
+		//TIMEOUT::set_and_wait(1000);
 	}
 }
 
@@ -112,6 +146,7 @@ void usci_tx_irq(void)
 void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
 void usci_rx_irq(void)
 {
+	//I2C::handle_rx_irq();
 	//if (UART::handle_rx_irq()) exit_idle();
 }
 #else

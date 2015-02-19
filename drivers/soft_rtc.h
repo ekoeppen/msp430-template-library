@@ -3,6 +3,8 @@
 
 #include <clocks.h>
 
+namespace SOFT_RTC {
+
 struct DATE_TIME {
 	static const uint8_t month_length[12];
 
@@ -41,7 +43,7 @@ struct DATE_TIME {
 const uint8_t DATE_TIME::month_length[12] = {31, 30, 28, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 template<typename CLOCK>
-struct SOFT_RTC_T {
+struct T {
 	static volatile uint16_t tick;
 	static DATE_TIME date_time;
 
@@ -86,10 +88,12 @@ struct SOFT_RTC_T {
 };
 
 template<typename CLOCK>
-volatile uint16_t SOFT_RTC_T<CLOCK>::tick;
+volatile uint16_t T<CLOCK>::tick;
 
 template<typename CLOCK>
-DATE_TIME SOFT_RTC_T<CLOCK>::date_time;
+DATE_TIME T<CLOCK>::date_time;
+
+}
 
 #endif
 

@@ -15,7 +15,7 @@ typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
 typedef GPIO_PORT_T<1, LED_RED> PORT1;
-typedef SOFT_RTC_T<WDT> RTC;
+typedef SOFT_RTC::T<WDT> RTC;
 
 void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
