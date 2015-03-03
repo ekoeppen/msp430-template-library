@@ -29,12 +29,12 @@ extern constexpr uint8_t rx_addr[5] = {
 const uint8_t BROADCAST_ADDR[] = {0x00, 0xf0, 0xf0, 0xf0, 0xf0};
 
 typedef VLOCLK_T<> VLO;
-typedef DCOCLK_T<1000000> DCO;
+typedef DCOCLK_T<12000000> DCO;
 typedef ACLK_T<VLO> ACLK;
 typedef MCLK_T<DCO> MCLK;
 typedef SMCLK_T<DCO> SMCLK;
 
-typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
+typedef GPIO_OUTPUT_T<1, 0, HIGH> LED_RED;
 typedef GPIO_OUTPUT_T<1, 3, LOW> WDT_ACTIVE;
 typedef GPIO_MODULE_T<1, 4, 1> SMCLK_OUT;
 #ifdef __MSP430_HAS_USCI__
@@ -75,7 +75,7 @@ typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
-typedef NRF24_T<SPI, CSN, CE, IRQ> NRF24;
+typedef NRF24_T<SPI, CSN, CE, IRQ, SMCLK> NRF24;
 
 int main(void)
 {
@@ -106,7 +106,6 @@ int main(void)
 	NRF24::set_channel(70);
 	NRF24::read_regs(regs);
 	hex_dump_bytes<UART>(regs, sizeof(regs));
-	while (1);
 #if (defined SENDING)
 	int n = 0;
 	while (1) {
