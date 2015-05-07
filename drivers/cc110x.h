@@ -113,7 +113,7 @@
 #define CC1101_RCCTRL1_STATUS    0x3C        // Last RC Oscillator Calibration Result
 #define CC1101_RCCTRL0_STATUS    0x3D        // Last RC Oscillator Calibration Result
 
-static constexpr uint8_t cc110x_init_values[][2] = {
+static constexpr uint8_t cc110x_default_init_values[][2] = {
 #if 0
 	{CC1101_IOCFG0, 0x06},
 	{CC1101_PKTCTRL1, 0x04},
@@ -124,27 +124,29 @@ static constexpr uint8_t cc110x_init_values[][2] = {
 	{CC1101_FREQ0, 0x3B},
 #endif
 #if 1
-  {CC1101_IOCFG0,      0x06},
-  {CC1101_FIFOTHR,     0x47},
-  {CC1101_PKTCTRL0,    0x05},
-  {CC1101_FSCTRL1,     0x06},
-  {CC1101_FREQ2,       0x10},
-  {CC1101_FREQ1,       0xB1},
-  {CC1101_FREQ0,       0x3B},
-  {CC1101_MDMCFG4,     0xFA},
-  {CC1101_MDMCFG3,     0x83},
-  {CC1101_MDMCFG2,     0x0B},
-  {CC1101_DEVIATN,     0x15},
-  {CC1101_MCSM0,       0x18},
-  {CC1101_FOCCFG,      0x16},
-  {CC1101_WORCTRL,     0xFB},
-  {CC1101_FSCAL3,      0xE9},
-  {CC1101_FSCAL2,      0x2A},
-  {CC1101_FSCAL1,      0x00},
-  {CC1101_FSCAL0,      0x1F},
-  {CC1101_TEST2,       0x81},
-  {CC1101_TEST1,       0x35},
-  {CC1101_TEST0,       0x09},
+	{CC1101_IOCFG0,      0x41},
+	{CC1101_IOCFG2,      0x06},
+	{CC1101_FIFOTHR,     0x47},
+	{CC1101_PKTCTRL0,    0x05},
+	{CC1101_PKTLEN,      0x3D},
+	{CC1101_FSCTRL1,     0x06},
+	{CC1101_FREQ2,       0x10},
+	{CC1101_FREQ1,       0xB1},
+	{CC1101_FREQ0,       0x3B},
+	{CC1101_MDMCFG4,     0xFA},
+	{CC1101_MDMCFG3,     0x83},
+	{CC1101_MDMCFG2,     0x0B},
+	{CC1101_DEVIATN,     0x15},
+	{CC1101_MCSM0,       0x18},
+	{CC1101_FOCCFG,      0x16},
+	{CC1101_WORCTRL,     0xFB},
+	{CC1101_FSCAL3,      0xE9},
+	{CC1101_FSCAL2,      0x2A},
+	{CC1101_FSCAL1,      0x00},
+	{CC1101_FSCAL0,      0x1F},
+	{CC1101_TEST2,       0x81},
+	{CC1101_TEST1,       0x35},
+	{CC1101_TEST0,       0x09},
 #endif
 #if 0
 	{0x00,   0x2E},               // GDO2 output pin configuration.
@@ -251,7 +253,7 @@ template<typename SPI,
 struct CC110X_T {
 	static uint8_t status_byte;
 
-	static void init(void) {
+	static void reset(void) {
 		CSN::set_high();
 		DELAY_TIMER::set_and_wait(5);
 		CSN::set_low();
@@ -263,8 +265,11 @@ struct CC110X_T {
 		SPI::transfer(CC1101_SRES);
 		while (MISO::is_high());
 		CSN::set_high();
-		for (int i = 0; i < ARRAY_COUNT(cc110x_init_values); i++) {
-			write_reg(cc110x_init_values[i][0], cc110x_init_values[i][1]);
+	}
+
+	static void init(const uint8_t reg_values[][2], uint8_t num_values) {
+		for (int i = 0; i < num_values; i++) {
+			write_reg(reg_values[i][0], reg_values[i][1]);
 		}
 	}
 
@@ -302,6 +307,10 @@ struct CC110X_T {
 	}
 
 	static void strobe(uint8_t cmd) {
+		CSN::set_low();
+		SPI::transfer(CC1101_SIDLE);
+		status_byte = SPI::transfer(CC1101_SPWD);
+		CSN::set_high();
 	}
 
 	static void power_down(void) {
@@ -318,8 +327,6 @@ struct CC110X_T {
 		status_byte = SPI::transfer(CC1101_STX);
 		CSN::set_high();
 		IRQ::wait_for_irq();
-		read_reg(CC1101_STATUS_REGISTER | CC1101_MARCSTATE);
-		read_reg(CC1101_STATUS_REGISTER | CC1101_TXBYTES);
 	}
 
 	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
@@ -328,18 +335,17 @@ struct CC110X_T {
 		CSN::set_low();
 		status_byte = SPI::transfer(CC1101_SRX);
 		CSN::set_high();
-		IRQ::wait_for_irq();
-		if (read_reg(CC1101_STATUS_REGISTER | CC1101_RXBYTES) > 0) {
-			n = read_reg(CC1101_CONFIG_REGISTER | CC1101_RXFIFO);
-			if (n > max_len) n = max_len;
-			read_burst_reg(CC1101_RXFIFO, data, n);
-			read_reg(CC1101_CONFIG_REGISTER | CC1101_RXFIFO);
-			read_reg(CC1101_CONFIG_REGISTER | CC1101_RXFIFO);
+		if (IRQ::template wait_for_irq<RX_TIMEOUT>()) {
+			if ((n = read_reg(CC1101_STATUS_REGISTER | CC1101_RXBYTES)) > 0) {
+				if (n > max_len) n = max_len;
+				read_burst_reg(CC1101_RXFIFO, data, n);
+			}
 		}
 		CSN::set_low();
 		SPI::transfer(CC1101_SIDLE);
 		status_byte = SPI::transfer(CC1101_SFRX);
 		CSN::set_high();
+		return n;
 	}
 };
 
