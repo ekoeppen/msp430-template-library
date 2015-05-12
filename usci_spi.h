@@ -26,7 +26,7 @@ struct USCI_SPI_T {
 		*USCI::CTL1 |= UCSWRST;
 		if (USCI::MCTL != 0) *USCI::MCTL = 0x00;
 		*USCI::CTL0 = (MODE == 0 || MODE == 2 ? UCCKPH : 0) |
-			(MODE == 2 || MODE == 3 ? UCCKPL : 0) | UCMSB | (MASTER ? UCMST : 0) | UCMODE_0 | UCSYNC;
+			(MODE == 2 || MODE == 3 ? UCCKPL : 0) | (MSB ? UCMSB : 0) | (MASTER ? UCMST : 0) | UCMODE_0 | UCSYNC;
 		*USCI::BR0 = (CLOCK::frequency / FREQUENCY) & 0xff;
 		*USCI::BR1 = (CLOCK::frequency / FREQUENCY) >> 8;
 		if (CLOCK::type == CLOCK_TYPE_ACLK) {
