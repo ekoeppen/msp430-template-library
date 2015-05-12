@@ -166,11 +166,12 @@ struct GPIO_PIN_T {
 		return *PxIFGS & bit_value;
 	}
 
-	static void wait_for_irq(void) {
-		clear_irq();
-		while (!(*PxIFGS & bit_value)) {
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static bool wait_for_irq(void) {
+		while (!TIMEOUT::triggered() && !(*PxIFGS & bit_value)) {
 			enter_idle();
 		}
+		return irq_raised();
 	}
 
 	static void set_output(void) {
@@ -249,6 +250,7 @@ struct PIN_UNUSED {
 	static void set_high(void) { }
 	static void set_low(void) { }
 	static void clear_irq(void) { }
+	static bool wait_for_irq(void) { return true; }
 	static constexpr bool irq_raised(void) { return false; }
 };
 
