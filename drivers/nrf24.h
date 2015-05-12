@@ -165,6 +165,7 @@ struct NRF24_T {
 		CE::set_low();
 		if (!IRQ::is_unused()) {
 			IRQ::wait_for_irq();
+			IRQ::clear_irq();
 		} else {
 			while (!(rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) & RF24_TX_DS));
 		}
