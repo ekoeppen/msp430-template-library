@@ -33,7 +33,7 @@ typedef GPIO_PORT_T<1, RX, TX, ADC_INPUT, ADC_REFOUT> PORT1;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 
-typedef ADC10_T<ADC10OSC, 0, 0, ADC_INPUT, ADC_REFOUT> ADC_CHANNEL_3;
+typedef ADC10_T<ADC10OSC, SREF_1 + ADC10SHT_3 + REFON + REFOUT + ADC10ON + REF2_5V, 0, ADC_INPUT> ADC_CHANNEL_3;
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
@@ -112,6 +112,7 @@ int main(void)
 	while (1) {
 		ADC_CHANNEL_3::init();
 		vcc_milli = read_voltage(); // (unsigned long) (adc_read_ref(INCH_11, REF2_5V) * 5L * 125L / 128L);
+		adc = ADC_CHANNEL_3::sample_once(); // adc_read_single(INCH_3);
 		adc = adc_read_single(INCH_3);
 		adc_ref = adc_read_ref(INCH_3, REF2_5V);
 		adc_norm = ((unsigned long) adc * (unsigned long) vcc_milli) >> 10;
@@ -119,9 +120,6 @@ int main(void)
 		printf<UART>("\rADC: no ref: %d ref 2.5: %d norm: %d r: %d V: %d\033[K",
 			     adc, adc_ref, adc_norm, r, vcc_milli);
 		ADC_CHANNEL_3::disable();
-		ADC10CTL0 &= ~ENC;
-		ADC10CTL0 &= ~REFON;
-		ADC10CTL0 &= ~ADC10ON;
 		TIMEOUT::set(1000);
 		enter_idle();
 	}
@@ -131,6 +129,13 @@ void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
 	if (TIMEOUT::count_down()) exit_idle();
+}
+
+
+void adc_irq(void) __attribute__((interrupt(ADC10_VECTOR)));
+void adc_irq(void)
+{
+	exit_idle();
 }
 
 #ifdef __MSP430_HAS_USCI__

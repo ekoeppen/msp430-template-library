@@ -93,6 +93,7 @@ struct GPIO_PIN_T {
 	static constexpr volatile uint8_t *PxREN = (uint8_t *) ports[PORT][8];
 	static constexpr volatile uint8_t *PxIFGS = (uint8_t *) ports[PORT][9];
 
+	static constexpr uint8_t pin = PIN;
 	static constexpr uint8_t bit_value = 1 << PIN;
 
 	static constexpr uint8_t direction = (PIN_DIRECTION == OUTPUT ? bit_value : 0);
@@ -102,7 +103,7 @@ struct GPIO_PIN_T {
 	static constexpr uint8_t function_select2 = (FUNCTION_SELECT & 0b10 ? bit_value : 0);
 	static constexpr uint8_t resistor_enable = (RESISTOR ? bit_value : 0);
 	static constexpr uint8_t initial_level = (INITIAL_LEVEL ? bit_value : 0);
-	static constexpr uint8_t adc_input = (PORT == 1 ? bit_value : 0);
+	static constexpr uint16_t adc_input = (PORT == 1 ? PIN << 12 : 0);
 	static constexpr bool is_unused(void) { return false; }
 
 	static void init(void) {
@@ -225,7 +226,9 @@ struct GPIO_ANALOG_T {
 	static constexpr uint8_t function_select2 = 0;
 	static constexpr uint8_t resistor_enable = 0;
 	static constexpr uint8_t initial_level = 0;
-	static constexpr uint8_t adc_input = (PORT == 1 ? 1 << PIN : 0);
+	static constexpr uint8_t pin = PIN;
+	static constexpr uint8_t bit_value = 1 << PIN;
+	static constexpr uint16_t adc_input = (PORT == 1 ? PIN << 12 : 0);
 };
 
 struct PIN_UNUSED {
@@ -236,8 +239,9 @@ struct PIN_UNUSED {
 	static constexpr uint8_t function_select2 = 0;
 	static constexpr uint8_t resistor_enable = 0;
 	static constexpr uint8_t initial_level = 0;
-	static constexpr uint8_t adc_input = 0;
-	static constexpr uint8_t pin_value = 0;
+	static constexpr uint16_t adc_input = 0;
+	static constexpr uint8_t pin = 0;
+	static constexpr uint8_t bit_value = 0;
 	static constexpr bool is_unused(void) { return true; }
 	static constexpr bool is_high(void) { return false; }
 	static constexpr bool is_low(void) { return true; }
