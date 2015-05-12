@@ -9,7 +9,6 @@
 #endif
 
 typedef VLOCLK_T<> VLO;
-typedef LFXT1CLK_T<> LFXT1;
 typedef ACLK_T<VLO> ACLK;
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_8192> WDT;
 
@@ -50,13 +49,12 @@ void port1_irq(void)
 int main(void)
 {
 	ACLK::init();
-	BCSCTL3 = XCAP_3;
 	PORT1::init();
 	WDT::init();
 	WDT::enable_irq();
 	while (1) {
-		//BUTTON::wait_for_irq();
+		BUTTON::clear_irq();
+		BUTTON::wait_for_irq();
 		LED_GREEN::toggle();
-		TIMEOUT::set_and_wait(1000);
 	}
 }
