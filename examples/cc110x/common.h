@@ -25,7 +25,7 @@ typedef MCLK_T<DCO> MCLK;
 typedef SMCLK_T<DCO> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
-typedef GPIO_OUTPUT_T<1, 3, LOW> WDT_ACTIVE;
+typedef GPIO_INPUT_T<1, 3, RESISTOR_ENABLED, PULL_UP, INTERRUPT_ENABLED, TRIGGER_FALLING> BUTTON;
 typedef GPIO_MODULE_T<1, 4, 1> SMCLK_OUT;
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
@@ -54,10 +54,11 @@ typedef GPIO_PIN_T<1, 6, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MOS
 typedef GPIO_PIN_T<1, 7, INPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MISO;
 typedef USI_SPI_T<SMCLK, true, 0> SPI;
 #endif
-typedef GPIO_INPUT_T<2, 0, RESISTOR_DISABLED, PULL_DOWN, INTERRUPT_ENABLED, TRIGGER_FALLING> IRQ;
+typedef GPIO_INPUT_T<2, 0, RESISTOR_DISABLED, PULL_DOWN, INTERRUPT_ENABLED, TRIGGER_FALLING> RDY;
 typedef GPIO_OUTPUT_T<2, 1, HIGH> CSN;
+typedef GPIO_INPUT_T<2, 2, RESISTOR_DISABLED, PULL_DOWN, INTERRUPT_ENABLED, TRIGGER_FALLING> IRQ;
 
-typedef GPIO_PORT_T<1, LED_RED, SCLK, MISO, MOSI, RX, TX, SMCLK_OUT, WDT_ACTIVE> PORT1;
+typedef GPIO_PORT_T<1, LED_RED, SCLK, MISO, MOSI, RX, TX, SMCLK_OUT, BUTTON> PORT1;
 typedef GPIO_PORT_T<2, IRQ, CSN> PORT2;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
@@ -70,6 +71,14 @@ void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
 	if (TIMEOUT::count_down()) exit_idle();
+}
+
+void port1_irq(void) __attribute__((interrupt(PORT1_VECTOR)));
+void port1_irq(void)
+{
+	if (PORT1::handle_irq()) {
+		exit_idle();
+	}
 }
 
 void port2_irq(void) __attribute__((interrupt(PORT2_VECTOR)));

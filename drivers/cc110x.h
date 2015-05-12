@@ -114,16 +114,6 @@
 #define CC1101_RCCTRL0_STATUS    0x3D        // Last RC Oscillator Calibration Result
 
 static constexpr uint8_t cc110x_default_init_values[][2] = {
-#if 0
-	{CC1101_IOCFG0, 0x06},
-	{CC1101_PKTCTRL1, 0x04},
-	{CC1101_PKTCTRL0, 0x41},
-	{CC1101_MCSM0, 0x38},
-	{CC1101_FREQ2, 0x10},
-	{CC1101_FREQ1, 0xB1},
-	{CC1101_FREQ0, 0x3B},
-#endif
-#if 1
 	{CC1101_IOCFG0,      0x41},
 	{CC1101_IOCFG2,      0x06},
 	{CC1101_FIFOTHR,     0x47},
@@ -137,6 +127,7 @@ static constexpr uint8_t cc110x_default_init_values[][2] = {
 	{CC1101_MDMCFG3,     0x83},
 	{CC1101_MDMCFG2,     0x0B},
 	{CC1101_DEVIATN,     0x15},
+	{CC1101_MCSM1,       0x3c},
 	{CC1101_MCSM0,       0x18},
 	{CC1101_FOCCFG,      0x16},
 	{CC1101_WORCTRL,     0xFB},
@@ -147,99 +138,6 @@ static constexpr uint8_t cc110x_default_init_values[][2] = {
 	{CC1101_TEST2,       0x81},
 	{CC1101_TEST1,       0x35},
 	{CC1101_TEST0,       0x09},
-#endif
-#if 0
-	{0x00,   0x2E},               // GDO2 output pin configuration.
-	{0x01,   0x2E},               // GDO1 output pin configuration. (default)
-	{0x02,   0x06},               // GDO0 output pin configuration.
-	{0x03,   0x07},               // RXFIFO and TXFIFO thresholds. (default)
-	{0x04,   0xD3},               // Sync word, high byte (default)
-	{0x05,   0x91},               // Sync word, low byte (default)
-	{0x06,   0xFF},               // Packet length. (default)
-	{0x07,   0x0C},               // Packet automation control. CRC autoflush, append status, no address check
-	{0x08,   0x05},               // Packet automation control. No whitening, CRC enabled, variable packet length
-	{0x09,   0x00},               // Device address. (default)
-	{0x0a,   0x00},               // Channel number. (default)
-	{0x0b,   0x0A},               // Frequency synthesizer control. IF = 253kHz
-	{0x0c,   0x00},               // Frequency synthesizer control. (default)
-	{0x0d,   0x10},               // Frequency control word, high byte.
-	{0x0e,   0xA7},               // Frequency control word, middle byte.
-	{0x0f,   0x62},               // Frequency control word, low byte.
-#ifdef FRQ_900
-	{0x0d,   0x22},               // Frequency control word, high byte.
-	{0x0e,   0xB6},               // Frequency control word, middle byte.
-	{0x0f,   0x27},               // Frequency control word, low byte.
-#endif
-	{0x10,   0x35},               // Modem configuration. 464kHz channel bandwidth
-	{0x11,   0x83},               // Modem configuration. 1.2kbps data rate
-	{0x12,   0x03},               // Modem configuration. 2-FSK, no Manchester, 30/32 sync words needed, no carrier sense
-	{0x13,   0x21},               // Modem configuration. 4 byte preamble
-	{0x14,   0xEE},               // Modem configuration. 97kHz channel spacing
-	{0x15,   0x65},               // Modem deviation setting (when FSK modulation is enabled). 165kHz
-	{0x16,   0x07},               // Main Radio Control State Machine configuration. (default)
-	{0x17,   0x00},               // Main Radio Control State Machine configuration. CCA always, return to idle after TX/RX
-	{0x18,   0x18},               // Main Radio Control State Machine configuration. Autocalibrate from IDLE to RX/TX
-	{0x19,   0x16},               // Frequency Offset Compensation Configuration.
-	{0x1a,   0x6C},               // Bit synchronization Configuration. (default)
-	{0x1b,   0x07},               // AGC control.
-	{0x1c,   0x40},               // AGC control. (default)
-	{0x1d,   0x91},               // AGC control. (default)
-	{0x1e,   0x87},               // High byte Event 0 timeout (default)
-	{0x1f,   0x6B},               // Low byte Event 0 timeout (default)
-	{0x20,   0xF8},               // Wake On Radio control (default)
-	{0x21,   0x57},               // Front end RX configuration.
-	{0x22,   0x10},               // Front end RX configuration. (default)
-	{0x23,   0xE9},               // Frequency synthesizer calibration.
-	{0x24,   0x2A},               // Frequency synthesizer calibration.
-	{0x25,   0x00},               // Frequency synthesizer calibration.
-	{0x26,   0x1F},               // Frequency synthesizer calibration.
-	{0x27,   0x41},               // RC oscillator configuration (default)
-	{0x28,   0x00},               // RC oscillator configuration (default)
-	// {0x29,   0x59},               // Frequency synthesizer calibration control (default)
-	// {0x2a,   0x7F},               // Production test (default)
-	// {0x2b,   0x3C},               // AGC test (default)
-	{0x2c,   0x88},               // Various test settings. (default)
-	{0x2d,   0x35},               // Various test settings. (default)
-	{0x2e,   0x09},               // Various test settings.
-#endif
-#if 0
-	{CC1101_IOCFG0, 0x06},
-	{CC1101_FSCTRL1, 0x06}, //       Frequency Synthesizer Control - IF:152.343Khz
-	{CC1101_FSCTRL0, 0x00}, //       Frequency Synthesizer Control - Freq offset
-	{CC1101_FREQ2, 0x10}, //         Frequency Control Word, High Byte - 433.999 Mhz
-	{CC1101_FREQ1, 0xB1}, //         Frequency Control Word, Middle Byte
-	{CC1101_FREQ0, 0x3B}, //         Frequency Control Word, Low Byte
-	{CC1101_MDMCFG4, 0xF8}, //       Modem Configuration - BW: 58.035Khz
-	{CC1101_MDMCFG3, 0x83}, //       Modem Configuration - 9595 Baud
-	{CC1101_MDMCFG2, 0x13}, //       Modem Configuration - 30/32 sync word bits - Manchester disable - GFSK - Digital DC filter enable
-	{CC1101_MDMCFG1, 0x22}, //       Modem Configuration - num of preamble bytes:4 - FEC disable
-	{CC1101_MDMCFG0, 0xF8}, //       Modem Configuration - Channel spacing: 199.951Khz
-	{CC1101_CHANNR, 0x00}, //        Channel Number
-	{CC1101_DEVIATN, 0x15}, //       Modem Deviation Setting - 5.157Khz
-	{CC1101_FREND1, 0x56}, //        Front End RX Configuration
-	{CC1101_FREND0, 0x10}, //        Front End TX Configuration
-	{CC1101_MCSM0, 0x18}, //         Main Radio Control State Machine Configuration - PO timeout: 64(149-155us) - Auto calibrate from idle to rx/tx
-	{CC1101_FOCCFG, 0x16}, //        Frequency Offset Compensation Configuration
-	{CC1101_BSCFG, 0x6C}, //         Bit Synchronization Configuration
-	{CC1101_AGCCTRL2, 0x03}, //      AGC Control - target amplitude: 33dB - Maximum possible LNA + LNA 2 gain - All gain settings can be used
-	{CC1101_AGCCTRL1, 0x40}, //      AGC Control - LNA gain decreased first
-	{CC1101_AGCCTRL0, 0x91}, //      AGC Control - Medium hysterisis - Filter Samples: 16 - Normal AGC operation
-	{CC1101_FSCAL3, 0xE9}, //        Frequency Synthesizer Calibration
-	{CC1101_FSCAL2, 0x2A}, //        Frequency Synthesizer Calibration
-	{CC1101_FSCAL1, 0x00}, //        Frequency Synthesizer Calibration
-	{CC1101_FSCAL0, 0x1F}, //        Frequency Synthesizer Calibration
-	{CC1101_FSTEST, 0x59}, //        Frequency Synthesizer Calibration Control
-	{CC1101_TEST2, 0x88}, //         Various Test Settings
-	{CC1101_TEST1, 0x31}, //         Various Test Settings
-	{CC1101_TEST0, 0x09}, //         Various Test Settings
-	{CC1101_FIFOTHR, 0x07}, //       RX FIFO and TX FIFO Thresholds - Bytes in TX FIFO:33 - Bytes in RX FIFO:32
-	{CC1101_PKTCTRL1, 0x04}, //      Packet Automation Control - No address check - Automatic flush of RX FIFO is disable - sync word is always accepted
-	{CC1101_PKTCTRL0, 0x05}, //      Packet Automation Control - whitening is off - RX/TX data normal mode - CRC calculation in TX and CRC check in RX - Variable packet length
-	{CC1101_ADDR, 0x00}, //          Device Address
-	{CC1101_PKTLEN, 0xFF}, //        Packet Length
-	{CC1101_MCSM1, 0x3F}, //         Main Radio Control State Machine Configuration
-	{CC1101_PATABLE, 0x60},
-#endif
 };
 
 template<typename SPI,
@@ -254,17 +152,24 @@ struct CC110X_T {
 	static uint8_t status_byte;
 
 	static void reset(void) {
-		CSN::set_high();
-		DELAY_TIMER::set_and_wait(5);
-		CSN::set_low();
-		DELAY_TIMER::set_and_wait(10);
-		CSN::set_high();
-		DELAY_TIMER::set_and_wait(41);
-		CSN::set_low();
-		while (MISO::is_high());
-		SPI::transfer(CC1101_SRES);
-		while (MISO::is_high());
-		CSN::set_high();
+		if (!MISO::is_unused()) {
+			CSN::set_high();
+			DELAY_TIMER::set_and_wait(5);
+			CSN::set_low();
+			DELAY_TIMER::set_and_wait(10);
+			CSN::set_high();
+			DELAY_TIMER::set_and_wait(41);
+			CSN::set_low();
+			while (MISO::is_high());
+			SPI::transfer(CC1101_SRES);
+			while (MISO::is_high());
+			CSN::set_high();
+		} else {
+			CSN::set_low();
+			SPI::transfer(CC1101_SRES);
+			DELAY_TIMER::set_and_wait_us(40);
+			CSN::set_high();
+		}
 	}
 
 	static void init(const uint8_t reg_values[][2], uint8_t num_values) {
@@ -316,7 +221,17 @@ struct CC110X_T {
 	static void power_down(void) {
 		CSN::set_low();
 		SPI::transfer(CC1101_SIDLE);
-		status_byte = SPI::transfer(CC1101_SPWD);
+		CSN::set_high();
+	}
+
+	static void start_tx(void) {
+	}
+
+	static void start_rx(void) {
+		CSN::set_low();
+		SPI::transfer(CC1101_SIDLE);
+		SPI::transfer(CC1101_SFRX);
+		status_byte = SPI::transfer(CC1101_SRX);
 		CSN::set_high();
 	}
 
@@ -327,24 +242,19 @@ struct CC110X_T {
 		status_byte = SPI::transfer(CC1101_STX);
 		CSN::set_high();
 		IRQ::wait_for_irq();
+		IRQ::clear_irq();
 	}
 
 	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
 	static int rx_buffer(uint8_t *data, int max_len) {
 		uint8_t n;
-		CSN::set_low();
-		status_byte = SPI::transfer(CC1101_SRX);
-		CSN::set_high();
 		if (IRQ::template wait_for_irq<RX_TIMEOUT>()) {
 			if ((n = read_reg(CC1101_STATUS_REGISTER | CC1101_RXBYTES)) > 0) {
 				if (n > max_len) n = max_len;
 				read_burst_reg(CC1101_RXFIFO, data, n);
 			}
+			IRQ::clear_irq();
 		}
-		CSN::set_low();
-		SPI::transfer(CC1101_SIDLE);
-		status_byte = SPI::transfer(CC1101_SFRX);
-		CSN::set_high();
 		return n;
 	}
 };

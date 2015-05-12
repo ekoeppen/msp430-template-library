@@ -1,4 +1,4 @@
-TARGETS = sender.elf receiver.elf
+TARGETS = sender.elf receiver.elf tester.elf swap_modem.elf
 
 CPU ?= msp430g2553
 
