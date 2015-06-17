@@ -14,8 +14,6 @@
 #ifndef RADIO_CONFIG_H_
 #define RADIO_CONFIG_H_
 
-#include "si4455_patch.h"
-
 // USER DEFINED PARAMETERS
 // Define your own parameters here
 
