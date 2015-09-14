@@ -227,6 +227,15 @@ struct CC110X_T {
 	static void start_tx(void) {
 	}
 
+	static void set_channel(const uint8_t channel) {
+	}
+
+	static void set_rx_addr(const uint8_t *addr) {
+	}
+
+	static void set_tx_addr(const uint8_t *addr) {
+	}
+
 	static void start_rx(void) {
 		CSN::set_low();
 		SPI::transfer(CC1101_SIDLE);

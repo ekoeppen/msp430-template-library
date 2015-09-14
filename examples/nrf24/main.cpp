@@ -1,6 +1,6 @@
 //#define USE_SOFT_SPI
-//#define SENDING
-#define RECEIVING
+#define SENDING
+//#define RECEIVING
 
 #include <gpio.h>
 #include <clocks.h>
@@ -103,6 +103,7 @@ int main(void)
 	for (int i = 0; i < sizeof(packet); i++) packet[i] = 0;
 	NRF24::init();
 	NRF24::set_rx_addr(rx_addr);
+	NRF24::set_tx_addr(BROADCAST_ADDR);
 	NRF24::set_channel(70);
 	NRF24::read_regs(regs);
 	hex_dump_bytes<UART>(regs, sizeof(regs));
@@ -110,7 +111,7 @@ int main(void)
 	int n = 0;
 	while (1) {
 		NRF24::start_tx();
-		NRF24::tx_buffer(BROADCAST_ADDR, packet, sizeof(packet), false);
+		NRF24::tx_buffer(packet, sizeof(packet));
 		LED_RED::toggle();
 		TIMEOUT::set_and_wait(500);
 		if (n++ == 10) {

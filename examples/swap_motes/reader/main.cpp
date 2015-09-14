@@ -51,7 +51,7 @@ typedef GPIO_PORT_T<2, IRQ, CSN, CE> PORT2;
 
 typedef TIMER_T<TIMER_A, 0, SMCLK, TIMER_MODE_CONTINUOUS> TIMER;
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
-typedef SOFT_RTC_T<WDT> RTC;
+typedef SOFT_RTC::T<WDT> RTC;
 typedef FLASH_T<SMCLK, WDT, &__infod> CONFIGURATION;
 
 #ifdef __MSP430_HAS_USCI__
@@ -66,7 +66,7 @@ typedef TIMEOUT_T<WDT> TIMEOUT;
 typedef NRF24_T<SPI, CSN, CE, IRQ, MCLK> NRF24;
 typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70, CONFIG_STORAGE_UNUSED> MOTE;
 
-DATE_TIME date_time;
+SOFT_RTC::DATE_TIME date_time;
 
 void set_rtc(uint8_t* raw_data)
 {

@@ -235,7 +235,7 @@ struct SWAP_MOTE_T {
 		tx_packet.dest = dest;
 		tx_packet.function = function;
 		tx_packet.reg_addr = reg_addr;
-		RADIO::tx_buffer(BROADCAST_ADDR, (uint8_t *) &tx_packet, tx_packet.len, false);
+		RADIO::tx_buffer((uint8_t *) &tx_packet, tx_packet.len);
 	}
 
 	static void send_status_packet(void) {
@@ -253,6 +253,7 @@ struct SWAP_MOTE_T {
 	static void init(void) {
 		RADIO::set_channel(config.channel);
 		RADIO::set_rx_addr(config.address);
+		RADIO::set_tx_addr(BROADCAST_ADDR);
 	}
 
 	static bool handle_status(void) {
@@ -263,10 +264,9 @@ struct SWAP_MOTE_T {
 	static void handle_radio(void) {
 		uint8_t len;
 		bool send_status = false;
-		uint8_t pipe;
 
 		RADIO::start_rx();
-		rx_packet.len = RADIO::template rx_buffer<RX_TIMEOUT>((uint8_t *) &rx_packet, sizeof(rx_packet) - sizeof(rx_packet.len), &pipe);
+		rx_packet.len = RADIO::template rx_buffer<RX_TIMEOUT>((uint8_t *) &rx_packet, sizeof(rx_packet) - sizeof(rx_packet.len));
 		if (rx_packet.len > 0) {
 			switch (rx_packet.function) {
 				case STATUS: send_status = handle_status_callback(); break;

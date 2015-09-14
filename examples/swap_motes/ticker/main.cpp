@@ -83,7 +83,7 @@ template<const uint32_t ID>
 uint16_t TICK_REGISTER_T<ID>::value = 0;
 
 typedef TICK_REGISTER_T<11> TICKER;
-typedef NRF24_T<SPI, CSN, CE, IRQ> NRF24;
+typedef NRF24_T<SPI, CSN, CE, IRQ, MCLK> NRF24;
 
 template<typename SERIAL, typename TIMEOUT, const int MAX_LEN>
 struct MOCK_RADIO_T {
@@ -138,7 +138,7 @@ struct MOCK_RADIO_T {
 
 typedef MOCK_RADIO_T<UART, TIMEOUT, sizeof(SWAP_PACKET) * 2> MOCK_RADIO;
 
-typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70, TIMEOUT, CONFIG_STORAGE_UNUSED, TICKER> MOTE;
+typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70, CONFIG_STORAGE_UNUSED, TICKER> MOTE;
 
 void dump_regs(void)
 {
@@ -165,7 +165,7 @@ int main(void)
 	SPI::init();
 	NRF24::init();
 	MOTE::init();
-	TIMEOUT::set(10000);
+	TIMEOUT::set(5000);
 	MOTE::announce<TIMEOUT>();
 	TIMEOUT::disable();
 	while (1) {
@@ -174,7 +174,9 @@ int main(void)
 		printf<UART>("Transmitting data\n");
 		MOTE::transmit_data();
 		printf<UART>("Sleeping\n");
-		MOTE::sleep();
+		TIMEOUT::set(10000);
+		MOTE::sleep<TIMEOUT>();
+		TIMEOUT::disable();
 	}
 	return 0;
 }

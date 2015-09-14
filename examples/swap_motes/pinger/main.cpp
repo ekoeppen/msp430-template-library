@@ -62,8 +62,8 @@ typedef USI_SPI_T<SMCLK, true, 0> SPI;
 #endif
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
-typedef NRF24_T<SPI, CSN, CE, IRQ> NRF24;
-typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70, TIMEOUT> MOTE;
+typedef NRF24_T<SPI, CSN, CE, IRQ, MCLK> NRF24;
+typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70> MOTE;
 
 void dump_regs(void)
 {
@@ -102,11 +102,14 @@ int main(void)
 	while (1) {
 		printf<UART>("Sending command\n");
 		NRF24::start_tx();
-		NRF24::tx_buffer(MOTE::BROADCAST_ADDR, (uint8_t *) &MOTE::tx_packet, MOTE::tx_packet.len, false);
+		NRF24::set_tx_addr(MOTE::BROADCAST_ADDR);
+		NRF24::tx_buffer((uint8_t *) &MOTE::tx_packet, MOTE::tx_packet.len);
 		MOTE::tx_packet.reg_value[0] ^= 0xff;
 		NRF24::power_down();
 		printf<UART>("Sleeping\n");
-		MOTE::sleep();
+		TIMEOUT::set(5000);
+		MOTE::sleep<TIMEOUT>();
+		TIMEOUT::disable();
 	}
 	return 0;
 }

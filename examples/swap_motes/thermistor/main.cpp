@@ -57,7 +57,7 @@ typedef GPIO_PIN_T<1, 6, OUTPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MOS
 typedef GPIO_PIN_T<1, 7, INPUT, LOW, INTERRUPT_DISABLED, TRIGGER_RISING, 1> MISO;
 #endif
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
-typedef GPIO_OUTPUT_T<1, 3, LOW> P1_3_UNUSED;
+typedef GPIO_ANALOG_T<1, 3> ADC_INPUT;
 typedef GPIO_OUTPUT_T<1, 4> VREF_OUT;
 typedef GPIO_OUTPUT_T<2, 0, LOW> CE;
 typedef GPIO_OUTPUT_T<2, 1, HIGH> CSN;
@@ -67,7 +67,7 @@ typedef GPIO_OUTPUT_T<2, 4, LOW> P2_4_UNUSED;
 typedef GPIO_OUTPUT_T<2, 5, LOW> P2_5_UNUSED;
 typedef GPIO_OUTPUT_T<2, 6, LOW> P2_6_UNUSED;
 typedef GPIO_OUTPUT_T<2, 7, LOW> P2_7_UNUSED;
-typedef GPIO_PORT_T<1, LED_RED, P1_3_UNUSED, VREF_OUT, SCLK, MISO, MOSI, RX, TX> PORT1;
+typedef GPIO_PORT_T<1, LED_RED, ADC_INPUT, VREF_OUT, SCLK, MISO, MOSI, RX, TX> PORT1;
 typedef GPIO_PORT_T<2, IRQ, CSN, CE, P2_3_UNUSED, P2_4_UNUSED, P2_5_UNUSED, P2_6_UNUSED, P2_7_UNUSED> PORT2;
 
 typedef TIMER_T<TIMER_A, 0, SMCLK, TIMER_MODE_CONTINUOUS> TIMER;
@@ -86,7 +86,7 @@ typedef USI_SPI_T<SMCLK, true, 0> SPI;
 #endif
 
 typedef TIMEOUT_T<WDT> TIMEOUT;
-typedef ADC10_T<ADC10OSC, 0, 0, BIT3 + BIT4> ADC_CHANNEL_3;
+typedef ADC10_T<ADC10OSC, SREF_1 + ADC10SHT_3 + REFON + REFOUT + ADC10ON + REF2_5V, 0, ADC_INPUT> ADC_CHANNEL_3;
 
 template<const uint32_t ID>
 struct THERMISTOR_REGISTER_T {
@@ -216,8 +216,8 @@ uint16_t THERMISTOR_REGISTER_T<ID>::value = 0;
 
 typedef VOLTAGE_REGISTER_T<11> VOLTAGE;
 typedef THERMISTOR_REGISTER_T<12> TEMPERATURE;
-typedef NRF24_T<TIMEOUT, SPI, CSN, CE, IRQ> NRF24;
-typedef SWAP_MOTE_T<1, 4, 1, 1, NRF24, 70, TIMEOUT, VOLTAGE, TEMPERATURE> MOTE;
+typedef NRF24_T<SPI, CSN, CE, IRQ, MCLK> NRF24;
+typedef SWAP_MOTE_T<1, 4, 1, 1, NRF24, 70, CONFIG_STORAGE_UNUSED, VOLTAGE, TEMPERATURE> MOTE;
 
 void dump_regs(void)
 {
@@ -248,7 +248,9 @@ int main(void)
 	NRF24::init();
 	MOTE::init();
 	printf<UART>("Announcing mote\n");
-	MOTE::announce();
+	TIMEOUT::set(5000);
+	MOTE::announce<TIMEOUT>();
+	TIMEOUT::disable();
 	while (1) {
 		printf<UART>("Updating registers\n");
 		MOTE::update_registers();
@@ -256,7 +258,9 @@ int main(void)
 		MOTE::transmit_data();
 		printf<UART>("Sleeping\n");
 		UART::disable();
-		MOTE::sleep();
+		TIMEOUT::set(5000);
+		MOTE::sleep<TIMEOUT>();
+		TIMEOUT::disable();
 		UART::enable();
 	}
 	return 0;
@@ -272,13 +276,13 @@ void watchdog_irq(void)
 void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
 void usci_tx_irq(void)
 {
-	if (UART::handle_tx_irq()) exit_idle();
+	if (SPI::handle_tx_irq() || UART::handle_tx_irq()) exit_idle();
 }
 
 void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
 void usci_rx_irq(void)
 {
-	if (SPI::handle_irq() || UART::handle_rx_irq()) exit_idle();
+	if (SPI::handle_rx_irq() || UART::handle_rx_irq()) exit_idle();
 }
 #else
 void usi_irq(void) __attribute__((interrupt(USI_VECTOR)));

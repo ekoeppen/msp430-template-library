@@ -155,10 +155,13 @@ struct NRF24_T {
 		rw_reg(RF24_W_REGISTER + RF24_EN_RXADDR, pipe_enable);
 	}
 
-	static void tx_buffer(const uint8_t tx_addr[5], const uint8_t *data, const uint8_t len, bool auto_ack) {
-		write_reg(RF24_FLUSH_TX, 0, 0);
+	static void set_tx_addr(const uint8_t* tx_addr) {
 		write_reg(RF24_W_REGISTER + RF24_TX_ADDR, tx_addr, RF24_ADDR_WIDTH);
 		write_reg(RF24_W_REGISTER + RF24_RX_ADDR_P0, tx_addr, RF24_ADDR_WIDTH);
+	}
+
+	static void tx_buffer(const uint8_t *data, const uint8_t len, bool auto_ack = false) {
+		write_reg(RF24_FLUSH_TX, 0, 0);
 		write_reg(auto_ack ? RF24_W_TX_PAYLOAD : RF24_W_TX_PAYLOAD_NOACK, data, len);
 		CE::set_high();
 		DELAY_TIMER::set_and_wait_us(20);
@@ -173,30 +176,37 @@ struct NRF24_T {
 	}
 
 	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
-	static int rx_buffer(uint8_t *data, int max_len, uint8_t *pipe) {
-		int n = 0;
+	static bool wait_for_rx(void) {
+		if (!IRQ::is_unused) {
+			while (!IRQ::irq_raised() && !RX_TIMEOUT::triggered()) {
+				enter_idle();
+			}
+		} else {
+			while ((!(rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) & RF24_RX_DR)) && !RX_TIMEOUT::triggered());
+		}
+		return !RX_TIMEOUT::triggered();
+	}
 
-		do {
-			if (!(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY)) {
-				n = rw_reg(RF24_R_RX_PL_WID, RF24_NOP);
-			} else {
-				if (!IRQ::is_unused()) {
-					IRQ::clear_irq();
-					while (!IRQ::irq_raised() && !RX_TIMEOUT::triggered()) {
-						enter_idle();
-					}
-				} else {
-					while (!(rw_reg(RF24_R_REGISTER + RF24_STATUS, RF24_NOP) & RF24_RX_DR));
+	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
+	static int rx_buffer(uint8_t *data, int max_len, uint8_t *pipe = 0) {
+		int n = 0;
+		static bool rx_data_available = false;
+
+		if (rx_data_available ||
+				(IRQ::is_unused && (!(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY)) ||
+				(!IRQ::is_unused && IRQ::irq_raised())) ||
+				wait_for_rx<RX_TIMEOUT>()) {
+			if (!IRQ::is_unused) IRQ::clear_irq();
+			rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
+			n = rw_reg(RF24_R_RX_PL_WID, RF24_NOP);
+			if (n > 0) {
+				if (n > max_len) n = max_len;
+				if (pipe != 0) {
+					*pipe = (last_status & 0b00001110) >> 1;
 				}
-				rw_reg(RF24_W_REGISTER + RF24_STATUS, RF24_RX_DR);
+				read_reg(RF24_R_RX_PAYLOAD, data, n);
 			}
-		} while (n == 0 && !RX_TIMEOUT::triggered());
-		if (n > 0) {
-			if (n > max_len) n = max_len;
-			if (pipe != 0) {
-				*pipe = (last_status & 0b00001110) >> 1;
-			}
-			read_reg(RF24_R_RX_PAYLOAD, data, n);
+			rx_data_available = !(rw_reg(RF24_R_REGISTER + RF24_FIFO_STATUS, RF24_NOP) & RF24_RX_EMPTY);
 		}
 		return n;
 	}
@@ -239,14 +249,16 @@ struct NRF24_T {
 		CSN::set_low();
 		SPI::transfer(rw_reg_buffer, 2, rw_reg_buffer);
 		CSN::set_high();
+		last_status = rw_reg_buffer[0];
 		return rw_reg_buffer[1];
-#endif
+#else
 		uint8_t r;
 		CSN::set_low();
 		last_status = SPI::transfer(reg);
 		r = SPI::transfer(value);
 		CSN::set_high();
 		return r;
+#endif
 	}
 
 	static void spi_transfer_buffer(uint8_t reg, int dir, uint8_t *data, int len)

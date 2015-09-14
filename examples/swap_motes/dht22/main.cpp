@@ -148,8 +148,8 @@ uint16_t VOLTAGE_REGISTER_T<ID>::value = 0;
 
 typedef VOLTAGE_REGISTER_T<11> VOLTAGE;
 typedef TEMP_HUM_REGISTER_T<12, TIMER, TIMEOUT, DHT_DATA, DHT_POWER> TEMPERATURE_HUMIDITY;
-typedef NRF24_T<TIMEOUT, SPI, CSN, CE, IRQ> NRF24;
-typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70, TIMEOUT, CONFIGURATION, VOLTAGE, TEMPERATURE_HUMIDITY> MOTE;
+typedef NRF24_T<SPI, CSN, CE, IRQ, MCLK> NRF24;
+typedef SWAP_MOTE_T<1, 1, 1, 1, NRF24, 70, CONFIGURATION, VOLTAGE, TEMPERATURE_HUMIDITY> MOTE;
 
 void dump_regs(void)
 {
@@ -178,13 +178,9 @@ int main(void)
 	MOTE::init();
 	printf<UART>("Announcing mote\n");
 	NRF24::start_rx();
-	while (1) {
-		LED_RED::set_high();
-		MOTE::handle_radio(10000);
-		LED_RED::set_low();
-		while (1) __bis_SR_register(LPM3_bits);
-	}
-	MOTE::announce();
+	TIMEOUT::set(5000);
+	MOTE::announce<TIMEOUT>();
+	TIMEOUT::disable();
 	while (1) {
 		printf<UART>("Updating registers\n");
 		MOTE::update_registers();
@@ -192,7 +188,9 @@ int main(void)
 		MOTE::transmit_data();
 		printf<UART>("Sleeping\n");
 		UART::disable();
-		MOTE::sleep();
+		TIMEOUT::set(15000);
+		MOTE::sleep<TIMEOUT>();
+		TIMEOUT::disable();
 		UART::enable();
 	}
 	return 0;
@@ -208,13 +206,13 @@ void watchdog_irq(void)
 void usci_tx_irq(void) __attribute__((interrupt(USCIAB0TX_VECTOR)));
 void usci_tx_irq(void)
 {
-	if (UART::handle_tx_irq()) exit_idle();
+	if (SPI::handle_tx_irq() || UART::handle_tx_irq()) exit_idle();
 }
 
 void usci_rx_irq(void) __attribute__((interrupt(USCIAB0RX_VECTOR)));
 void usci_rx_irq(void)
 {
-	if (SPI::handle_irq() || UART::handle_rx_irq()) exit_idle();
+	if (SPI::handle_rx_irq() || UART::handle_rx_irq()) exit_idle();
 }
 #else
 void usi_irq(void) __attribute__((interrupt(USI_VECTOR)));
