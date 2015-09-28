@@ -2,6 +2,7 @@
 #include <clocks.h>
 #include <wdt.h>
 #include <io.h>
+#include <utils.h>
 #include <timer.h>
 #if defined(USE_SOFT_SPI)
 #include <soft_spi.h>
@@ -17,7 +18,7 @@
 #include <soft_uart.h>
 #endif
 
-#include "radio_config_Si4455.h"
+#include "radio_config_Si4355.h"
 
 typedef VLOCLK_T<> VLO;
 typedef DCOCLK_T<12000000> DCO;
@@ -26,7 +27,7 @@ typedef MCLK_T<DCO> MCLK;
 typedef SMCLK_T<DCO> SMCLK;
 
 typedef GPIO_OUTPUT_T<1, 0, LOW> LED_RED;
-typedef GPIO_OUTPUT_T<1, 3, LOW> WDT_ACTIVE;
+typedef GPIO_INPUT_T<1, 3, RESISTOR_ENABLED, PULL_UP, INTERRUPT_ENABLED, TRIGGER_FALLING> BUTTON;
 typedef GPIO_MODULE_T<1, 4, 1> SMCLK_OUT;
 #ifdef __MSP430_HAS_USCI__
 typedef GPIO_MODULE_T<1, 1, 3> RX;
@@ -61,7 +62,7 @@ typedef GPIO_INPUT_T<2, 2, RESISTOR_DISABLED, PULL_DOWN, INTERRUPT_ENABLED, TRIG
 typedef GPIO_INPUT_T<2, 3> CTS;
 typedef GPIO_INPUT_T<2, 4> GPIO0;
 
-typedef GPIO_PORT_T<1, LED_RED, SCLK, MISO, MOSI, RX, TX> PORT1;
+typedef GPIO_PORT_T<1, BUTTON, LED_RED, SCLK, MISO, MOSI, RX, TX> PORT1;
 typedef GPIO_PORT_T<2, IRQ, CSN, SDN, CTS, GPIO0> PORT2;
 
 typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
@@ -69,6 +70,7 @@ typedef WDT_T<ACLK, WDT_TIMER, WDT_INTERVAL_512> WDT;
 typedef TIMEOUT_T<WDT> TIMEOUT;
 
 static uint8_t const radio_config[] = RADIO_CONFIGURATION_DATA_ARRAY;
+static uint8_t response_buffer[64];
 
 void poll_cts(void) {
 	uint8_t response;
@@ -101,27 +103,75 @@ void radio_init(void)
 	}
 }
 
-void radio_command(uint8_t command, uint8_t length)
+void radio_command(uint8_t *command, uint8_t length, uint8_t *response, uint8_t response_length)
 {
-	uint8_t response, done;
+	uint8_t r, done;
+
 	while (CTS::is_low());
 	CSN::set_low();
-	SPI::transfer(command);
+	while (length--) {
+		SPI::transfer(*command++);
+	}
 	CSN::set_high();
 	done = false;
 	while (!done) {
 		while (CTS::is_low());
 		CSN::set_low();
 		SPI::transfer(0x44);
-		response = SPI::transfer(0xff);
-		if (response = 0xff) {
-			while (length--) {
-				response = SPI::transfer(0xff);
+		r = SPI::transfer(0xff);
+		if (r == 0xff) {
+			while (response_length--) {
+				*response++ = SPI::transfer(0xff);
 			}
 			done = true;
 		}
 		CSN::set_high();
 	}
+}
+
+void radio_command(uint8_t command, uint8_t *response, uint8_t response_length)
+{
+	radio_command(&command, 1, response, response_length);
+}
+
+void read_rx_fifo(uint8_t *response, uint8_t response_length)
+{
+	CSN::set_low();
+	SPI::transfer(0x77);
+	while (response_length--) {
+		*response++ = SPI::transfer(0xff);
+	}
+	CSN::set_high();
+}
+
+void read_rx_fifo(uint8_t length)
+{
+	read_rx_fifo(response_buffer, length); hex_dump_bytes<UART>(response_buffer, length, "RX FIFO");
+}
+
+void start_rx(void)
+{
+	radio_command((uint8_t *) "\x32\x00\x00\x00\x07\x00\x01\x00", 8, 0, 0);
+}
+
+void rx_fifo_info(void)
+{
+	radio_command((uint8_t *) "\x15\x00", 2, response_buffer, 1); hex_dump_bytes<UART>(response_buffer, 16, "FIFO Status");
+}
+
+void reset_rx_fifo(void)
+{
+	radio_command((uint8_t *) "\x15\x02", 2, response_buffer, 1); hex_dump_bytes<UART>(response_buffer, 16, "FIFO Status (reset)");
+}
+
+void device_status(void)
+{
+	radio_command(0x33, response_buffer, 2); hex_dump_bytes<UART>(response_buffer, 16, "Device status");
+}
+
+void clear_irq(void)
+{
+	radio_command((uint8_t *) "\x20\x00\x00\x00", 4, response_buffer, 8); hex_dump_bytes<UART>(response_buffer, 16, "IRQ Status");
 }
 
 int main(void)
@@ -147,13 +197,22 @@ int main(void)
 	SDN::set_low();
 	MCLK::set_and_wait(5);
 	radio_init();
-	radio_command(0x01, 8);
-	radio_command(0x10, 7);
-	radio_command(0x33, 3);
-	radio_command(0x01, 8);
 	while (1) {
-		LED_RED::toggle();
-		TIMEOUT::set_and_wait(500);
+		clear_irq();
+		start_rx();
+		device_status();
+		UART::puts("-- Wait for IRQ ------------------------------------------\n");
+		do {
+			IRQ::clear_irq();
+			IRQ::wait_for_irq();
+			clear_irq();
+		} while (!(response_buffer[0] & 0x01));
+		LED_RED::set_high();
+		rx_fifo_info();
+		read_rx_fifo(response_buffer[0]);
+		reset_rx_fifo();
+		UART::puts("----------------------------------------------------------\n");
+		LED_RED::set_low();
 	}
 }
 
@@ -161,6 +220,14 @@ void watchdog_irq(void) __attribute__((interrupt(WDT_VECTOR)));
 void watchdog_irq(void)
 {
 	if (TIMEOUT::count_down()) exit_idle();
+}
+
+void port1_irq(void) __attribute__((interrupt(PORT1_VECTOR)));
+void port1_irq(void)
+{
+	if (PORT1::handle_irq()) {
+		exit_idle();
+	}
 }
 
 void port2_irq(void) __attribute__((interrupt(PORT2_VECTOR)));
