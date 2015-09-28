@@ -242,6 +242,9 @@ struct NRF24_T {
 		rw_reg(RF24_W_REGISTER + RF24_CONFIG, RF24_EN_CRC);
 	}
 
+	static void power_up(void) {
+	}
+
 	static uint8_t rw_reg(uint8_t reg, uint8_t value)
 	{
 #if 0

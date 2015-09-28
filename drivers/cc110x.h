@@ -114,7 +114,8 @@
 #define CC1101_RCCTRL0_STATUS    0x3D        // Last RC Oscillator Calibration Result
 
 static constexpr uint8_t cc110x_default_init_values[][2] = {
-	{CC1101_IOCFG0,      0x41},
+	{CC1101_IOCFG0,      0x2F},
+	{CC1101_IOCFG1,      0x2F},
 	{CC1101_IOCFG2,      0x06},
 	{CC1101_FIFOTHR,     0x47},
 	{CC1101_PKTCTRL0,    0x05},
@@ -211,17 +212,18 @@ struct CC110X_T {
 		CSN::set_high();
 	}
 
-	static void strobe(uint8_t cmd) {
+	static void power_down(void) {
+		write_reg(CC1101_IOCFG2, 0x2f);
 		CSN::set_low();
 		SPI::transfer(CC1101_SIDLE);
 		status_byte = SPI::transfer(CC1101_SPWD);
 		CSN::set_high();
 	}
 
-	static void power_down(void) {
+	static void power_up(void) {
 		CSN::set_low();
-		SPI::transfer(CC1101_SIDLE);
-		CSN::set_high();
+		DELAY_TIMER::set_and_wait(50);
+		write_reg(CC1101_IOCFG2, 0x06);
 	}
 
 	static void start_tx(void) {
@@ -265,6 +267,17 @@ struct CC110X_T {
 			IRQ::clear_irq();
 		}
 		return n;
+	}
+
+	static void read_regs(uint8_t *buffer) {
+		int i, n;
+
+		for (n = 0, i = 0x00; i < 0x30; i++) {
+			buffer[n++] = read_reg(CC1101_CONFIG_REGISTER | i);
+		}
+		for (i = 0x30; i < 0x3e; i++) {
+			buffer[n++] = read_reg(CC1101_STATUS_REGISTER | i);
+		}
 	}
 };
 

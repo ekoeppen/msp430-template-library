@@ -40,9 +40,11 @@ struct USCI_SPI_T {
 	}
 
 	static void enable(void) {
+		*USCI::CTL1 &= ~UCSWRST;
 	}
 
 	static void disable(void) {
+		*USCI::CTL1 |= UCSWRST;
 	}
 
 	static int ready(void) {

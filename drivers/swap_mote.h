@@ -360,6 +360,7 @@ struct SWAP_MOTE_T {
 	};
 
 	static void transmit_data(void) {
+		RADIO::power_up();
 		RADIO::start_tx();
 		if (REGISTER1::write(tx_packet)) send_status_packet();
 		if (REGISTER2::write(tx_packet)) send_status_packet();

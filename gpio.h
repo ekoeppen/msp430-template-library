@@ -166,6 +166,14 @@ struct GPIO_PIN_T {
 		return *PxIFGS & bit_value;
 	}
 
+	static void disable_irq(void) {
+		*PxIE &= ~bit_value;
+	}
+
+	static void enable_irq(void) {
+		*PxIE |= bit_value;
+	}
+
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static bool wait_for_irq(void) {
 		while (!TIMEOUT::triggered() && !(*PxIFGS & bit_value)) {
