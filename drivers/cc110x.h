@@ -121,13 +121,14 @@ static constexpr uint8_t cc110x_default_init_values[][2] = {
 	{CC1101_PKTLEN,      0x3D}, // 62 bytes max packet length
 	{CC1101_PKTCTRL0,    0x05}, // TX/RX CRC enabled, variable packet length
 	{CC1101_FSCTRL1,     0x06}, // 152kHz IF frequency
-	{CC1101_FREQ2,       0x10}, // 433.99MHz carrier frequency
+	{CC1101_FREQ2,       0x10}, // 434 MHz carrier frequency
 	{CC1101_FREQ1,       0xB1},
 	{CC1101_FREQ0,       0x3B},
 	{CC1101_MDMCFG4,     0xFA}, // 135kHz channel bandwidth
 	{CC1101_MDMCFG3,     0x83}, // 38.4kbps symbol rate
-	{CC1101_MDMCFG2,     0x0B}, // 2-FSK, Manchester, 30/32 sync word detection
-	{CC1101_DEVIATN,     0x15}, // 5.1kHz FSK deviation
+	{CC1101_MDMCFG2,     0x03}, // 2-FSK, 30/32 sync word detection
+	{CC1101_MDMCFG1,     0x42}, // 8 bytes preamble
+	{CC1101_DEVIATN,     0x27}, // 11.9kHz FSK deviation
 	{CC1101_MCSM1,       0x3c},
 	{CC1101_MCSM0,       0x18},
 	{CC1101_FOCCFG,      0x16},
@@ -258,7 +259,7 @@ struct CC110X_T {
 
 	template<typename RX_TIMEOUT = TIMEOUT_NEVER>
 	static int rx_buffer(uint8_t *data, int max_len) {
-		uint8_t n;
+		uint8_t n = 0;
 		if (IRQ::template wait_for_irq<RX_TIMEOUT>()) {
 			if ((n = read_reg(CC1101_STATUS_REGISTER | CC1101_RXBYTES)) > 0) {
 				if (n > max_len) n = max_len;
