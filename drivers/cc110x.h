@@ -119,6 +119,7 @@ static constexpr uint8_t cc110x_default_init_values[][2] = {
 	{CC1101_IOCFG2,      0x06},
 	{CC1101_FIFOTHR,     0x47}, // RX attenuation 6dB, 33/32 byte threshold
 	{CC1101_PKTLEN,      0x3D}, // 62 bytes max packet length
+	{CC1101_PKTCTRL1,    0x0C}, // CRC autoflush, status append
 	{CC1101_PKTCTRL0,    0x05}, // TX/RX CRC enabled, variable packet length
 	{CC1101_FSCTRL1,     0x06}, // 152kHz IF frequency
 	{CC1101_FREQ2,       0x10}, // 434 MHz carrier frequency
@@ -126,7 +127,7 @@ static constexpr uint8_t cc110x_default_init_values[][2] = {
 	{CC1101_FREQ0,       0x3B},
 	{CC1101_MDMCFG4,     0xFA}, // 135kHz channel bandwidth
 	{CC1101_MDMCFG3,     0x83}, // 38.4kbps symbol rate
-	{CC1101_MDMCFG2,     0x03}, // 2-FSK, 30/32 sync word detection
+	{CC1101_MDMCFG2,     0x06}, // 2-FSK, 16/16 sync word detection, carrier sense
 	{CC1101_MDMCFG1,     0x42}, // 8 bytes preamble
 	{CC1101_DEVIATN,     0x27}, // 11.9kHz FSK deviation
 	{CC1101_MCSM1,       0x3c},
