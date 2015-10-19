@@ -34,6 +34,7 @@ struct USCI_I2C_T {
 			*USCI::CTL1 = UCSSEL_2;
 		}
 		rx_tx_count = 0;
+		USCI::disable_rx_tx_irq();
 	}
 
 	static void enable(void) {
@@ -126,6 +127,12 @@ struct USCI_I2C_T {
 		while (*USCI::CTL1 & UCTXSTT);
 		read(data, length);
 		CLOCK::release();
+	}
+
+	template<typename TIMEOUT = TIMEOUT_NEVER>
+	static void transfer(const uint8_t *data, int length, bool direction, bool restart = false) {
+		if (direction) write(data, length, restart);
+		else read(const_cast<uint8_t *>(data), length);
 	}
 #else
 
