@@ -2,6 +2,10 @@
 
 static bool init_done = false;
 
+static const uint8_t data[] = {
+	0x00, 0xff, 0x00, 0x00, 0x00, 0xff, 0x09, 0xff
+};
+
 int main(void)
 {
 	bool active = true;
@@ -26,7 +30,7 @@ int main(void)
 		if (active) {
 			LED_RED::set_high();
 			CC1101::power_up();
-			CC1101::tx_buffer((uint8_t *) "\x55\xaa\x55\xaa", 4);
+			CC1101::tx_buffer(data, sizeof(data));
 			CC1101::power_down();
 			LED_RED::set_low();
 			TIMEOUT::set_and_wait(5000);
