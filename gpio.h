@@ -48,23 +48,22 @@ enum PIN_FUNCTION {
 uint8_t P1IFGS;
 uint8_t P2IFGS;
 
-static constexpr uint16_t ports[][10] = {
-	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{P1IN_, P1OUT_, P1DIR_, P1IFG_, P1IES_, P1IE_, P1SEL_, P1SEL2_, P1REN_, (uint16_t) &P1IFGS},
+static constexpr volatile uint8_t *ports[][10] = {
+	{const_cast<uint8_t *>(&P1IN), &P1OUT, &P1DIR, &P1IFG, &P1IES, &P1IE, &P1SEL, &P1SEL2, &P1REN, &P1IFGS},
 #ifdef P2IN_
-	{P2IN_, P2OUT_, P2DIR_, P2IFG_, P2IES_, P2IE_, P2SEL_, P2SEL2_, P2REN_, (uint16_t) &P2IFGS},
+	{const_cast<uint8_t *>(&P2IN), &P2OUT, &P2DIR, &P2IFG, &P2IES, &P2IE, &P2SEL, &P2SEL2, &P2REN, &P2IFGS},
 #ifdef P3IN_
-	{P3IN_, P3OUT_, P3DIR_, 0, 0, 0, P3SEL_, P3SEL2_, P3REN_, 0},
+	{const_cast<uint8_t *>(&P3IN), &P3OUT, &P3DIR, 0, 0, 0, &P3SEL, &P3SEL2, &P3REN, 0},
 #ifdef P4IN_
-	{P4IN_, P4OUT_, P4DIR_, 0, 0, 0, P4SEL_, P4SEL2_, P4REN_, 0},
+	{const_cast<uint8_t *>(&P4IN), &P4OUT, &P4DIR, 0, 0, 0, &P4SEL, &P4SEL2, &P4REN, 0},
 #ifdef P5IN_
-	{P5IN_, P5OUT_, P5DIR_, 0, 0, 0, P5SEL_, P5SEL2_, P5REN_, 0},
+	{const_cast<uint8_t *>(&P5IN), &P5OUT, &P5DIR, 0, 0, 0, &P5SEL, &P5SEL2, &P5REN, 0},
 #ifdef P6IN_
-	{P6IN_, P6OUT_, P6DIR_, 0, 0, 0, P6SEL_, P6SEL2_, P6REN_, 0},
+	{const_cast<uint8_t *>(&P6IN), &P6OUT, &P6DIR, 0, 0, 0, &P6SEL, &P6SEL2, &P6REN, 0},
 #ifdef P7IN_
-	{P7IN_, P7OUT_, P7DIR_, 0, 0, 0, P7SEL_, P7SEL2_, P7REN_, 0},
+	{const_cast<uint8_t *>(&P7IN), &P7OUT, &P7DIR, 0, 0, 0, &P7SEL, &P7SEL2, &P7REN, 0},
 #ifdef P8IN_
-	{P8IN_, P8OUT_, P8DIR_, 0, 0, 0, P8SEL_, P8SEL2_, P8REN_, 0}
+	{const_cast<uint8_t *>(&P8IN), &P8OUT, &P8DIR, 0, 0, 0, &P8SEL, &P8SEL2, &P8REN, 0},
 #endif
 #endif
 #endif
@@ -82,16 +81,16 @@ template<const char PORT, const char PIN,
 	const char FUNCTION_SELECT = 0,
 	const RESISTOR_ENABLE RESISTOR = RESISTOR_DISABLED>
 struct GPIO_PIN_T {
-	static constexpr volatile uint8_t *PxIN = (uint8_t *) ports[PORT][0];
-	static constexpr volatile uint8_t *PxOUT = (uint8_t *) ports[PORT][1];
-	static constexpr volatile uint8_t *PxDIR = (uint8_t *) ports[PORT][2];
-	static constexpr volatile uint8_t *PxIFG = (uint8_t *) ports[PORT][3];
-	static constexpr volatile uint8_t *PxIES = (uint8_t *) ports[PORT][4];
-	static constexpr volatile uint8_t *PxIE = (uint8_t *) ports[PORT][5];
-	static constexpr volatile uint8_t *PxSEL = (uint8_t *) ports[PORT][6];
-	static constexpr volatile uint8_t *PxSEL2 = (uint8_t *) ports[PORT][7];
-	static constexpr volatile uint8_t *PxREN = (uint8_t *) ports[PORT][8];
-	static constexpr volatile uint8_t *PxIFGS = (uint8_t *) ports[PORT][9];
+	static constexpr volatile uint8_t *PxIN = ports[PORT - 1][0];
+	static constexpr volatile uint8_t *PxOUT = ports[PORT - 1][1];
+	static constexpr volatile uint8_t *PxDIR = ports[PORT - 1][2];
+	static constexpr volatile uint8_t *PxIFG = ports[PORT - 1][3];
+	static constexpr volatile uint8_t *PxIES = ports[PORT - 1][4];
+	static constexpr volatile uint8_t *PxIE = ports[PORT - 1][5];
+	static constexpr volatile uint8_t *PxSEL = ports[PORT - 1][6];
+	static constexpr volatile uint8_t *PxSEL2 = ports[PORT - 1][7];
+	static constexpr volatile uint8_t *PxREN = ports[PORT - 1][8];
+	static constexpr volatile uint8_t *PxIFGS = ports[PORT - 1][9];
 
 	static constexpr uint8_t pin = PIN;
 	static constexpr uint8_t bit_value = 1 << PIN;
@@ -272,16 +271,16 @@ template<const int PORT,
 	typename PIN6 = PIN_UNUSED,
 	typename PIN7 = PIN_UNUSED>
 struct GPIO_PORT_T {
-	static constexpr volatile uint8_t *PxIN = (uint8_t *) ports[PORT][0];
-	static constexpr volatile uint8_t *PxOUT = (uint8_t *) ports[PORT][1];
-	static constexpr volatile uint8_t *PxDIR = (uint8_t *) ports[PORT][2];
-	static constexpr volatile uint8_t *PxIFG = (uint8_t *) ports[PORT][3];
-	static constexpr volatile uint8_t *PxIES = (uint8_t *) ports[PORT][4];
-	static constexpr volatile uint8_t *PxIE = (uint8_t *) ports[PORT][5];
-	static constexpr volatile uint8_t *PxSEL = (uint8_t *) ports[PORT][6];
-	static constexpr volatile uint8_t *PxSEL2 = (uint8_t *) ports[PORT][7];
-	static constexpr volatile uint8_t *PxREN = (uint8_t *) ports[PORT][8];
-	static constexpr volatile uint8_t *PxIFGS = (uint8_t *) ports[PORT][9];
+	static constexpr volatile uint8_t *PxIN = ports[PORT - 1][0];
+	static constexpr volatile uint8_t *PxOUT = ports[PORT - 1][1];
+	static constexpr volatile uint8_t *PxDIR = ports[PORT - 1][2];
+	static constexpr volatile uint8_t *PxIFG = ports[PORT - 1][3];
+	static constexpr volatile uint8_t *PxIES = ports[PORT - 1][4];
+	static constexpr volatile uint8_t *PxIE = ports[PORT - 1][5];
+	static constexpr volatile uint8_t *PxSEL = ports[PORT - 1][6];
+	static constexpr volatile uint8_t *PxSEL2 = ports[PORT - 1][7];
+	static constexpr volatile uint8_t *PxREN = ports[PORT - 1][8];
+	static constexpr volatile uint8_t *PxIFGS = ports[PORT - 1][9];
 
 	static void init(void) {
 		uint8_t reg;
