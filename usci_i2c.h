@@ -52,6 +52,26 @@ struct USCI_I2C_T {
 		while (*USCI::CTL1 & UCTXSTP);
 	}
 
+	static bool slave_present(const uint8_t slave_address){
+		uint8_t ie2_bak, slaveadr_bak, ucb0i2cie;
+		bool r;
+		ucb0i2cie = *USCI::I2CIE;
+		ie2_bak = IE2;
+		*USCI::I2CIE &= ~UCNACKIE;
+		*USCI::I2CSA = slave_address;
+		IE2 &= ~(UCB0TXIE + UCB0RXIE);
+		__disable_interrupt();
+		*USCI::CTL1 |= UCTR + UCTXSTT + UCTXSTP;
+		while (*USCI::CTL1 & UCTXSTP);
+
+		r = !(*USCI::STAT & UCNACKIFG);
+		__enable_interrupt();
+		IE2 = ie2_bak;
+		*USCI::I2CIE = ucb0i2cie;
+		return r;
+	}
+
+
 #ifdef I2C_POLLING
 	template<typename TIMEOUT = TIMEOUT_NEVER>
 	static void write(const uint8_t *data, int length, bool restart = false) {
