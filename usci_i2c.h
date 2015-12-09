@@ -52,7 +52,7 @@ struct USCI_I2C_T {
 		while (*USCI::CTL1 & UCTXSTP);
 	}
 
-	static bool slave_present(const uint8_t slave_address){
+	static bool slave_present(const uint8_t slave_address) {
 		uint8_t ie2_bak, slaveadr_bak, ucb0i2cie;
 		bool r;
 		ucb0i2cie = *USCI::I2CIE;
